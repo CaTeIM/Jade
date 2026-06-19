@@ -171,6 +171,11 @@ BLE_TEST_BADKEYFILE = 'ble_test_badkey.txt'
 # The default serial read timeout
 DEFAULT_SERIAL_TIMEOUT = 240
 
+# Time to wait for stale data timeout on device before sending follow-up message.
+# The firmware stale-data timeout (wire.c TIMEOUT_TICKS) is 3s on v1.x and 2s on v2.x.
+# This value must be > TIMEOUT_TICKS to reliably trigger the stale path.
+STALE_DATA_TIMEOUT = 4
+
 # The pubkey for the test (in-proc) pinserver
 PINSERVER_TEST_PUBKEY_FILE = 'server_public_key.pub'
 
@@ -518,7 +523,7 @@ def test_very_bad_message(jade):
     for badmsg in [empty, text, truncated]:
         # Send the bad message, and after a pause a good message
         jade.write(badmsg)
-        wait(3, force=True)
+        wait(STALE_DATA_TIMEOUT, force=True)
         jade.write_request(goodmsg)
 
         # We should receive a bag of errors
@@ -558,7 +563,7 @@ def test_random_bytes(jade):
         jade.write(noise)
         nsent += len(noise)
 
-    wait(5, force=True)
+    wait(STALE_DATA_TIMEOUT, force=True)
     goodmsg = jade.build_request('goodmsg', 'add_entropy', {'entropy': 'somebytes'.encode()})
     jade.write_request(goodmsg)
 
@@ -628,7 +633,7 @@ def test_too_much_input(jade, has_psram):
     assert int(error['data']) == expected_buffer_size
 
     # After a short pause send a good message
-    wait(5, force=True)
+    wait(STALE_DATA_TIMEOUT, force=True)
     goodmsg = jade.build_request('trailer', 'add_entropy', {'entropy': 'random'.encode()})
     jade.write_request(goodmsg)
 
@@ -679,7 +684,7 @@ def test_concatenated_messages(jade, do_wait):
     jade.write(concat_cbor[:split_point])
     if do_wait:
         # Force the first write to timeout (become stale)
-        wait(5, force=True)
+        wait(STALE_DATA_TIMEOUT, force=True)
     jade.write(concat_cbor[split_point:])
 
     reply1 = jade.read_response()
