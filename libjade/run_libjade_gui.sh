@@ -45,6 +45,8 @@ if [ ! -d "$JADE_PATH" ]; then
     exit 1
 fi
 
+export PYTHONPATH=$JADE_PATH${PYTHONPATH:+:$PYTHONPATH}
+
 echo "--------------------------------"
 echo "Building libjade ($MODE mode, $BUILD_TYPE)..."
 echo "--------------------------------"
@@ -93,6 +95,9 @@ if [ "$MODE" == "daemon" ]; then
     python $JADE_PATH/libjade/gui.py --device "tcp:$CBOR_SOCKET" --nvs-file "$NVS_FILE" --log-level "$LOG_LEVEL"
 else
     export LD_LIBRARY_PATH=$JADE_PATH/build_linux/libjade:$LD_LIBRARY_PATH
+    if [ "$(uname)" = "Darwin" ]; then
+        export DYLD_LIBRARY_PATH=$JADE_PATH/build_linux/libjade:$DYLD_LIBRARY_PATH
+    fi
     echo "--------------------------------"
     echo "Running Jade GUI (in-process mode)..."
     echo "--------------------------------"
