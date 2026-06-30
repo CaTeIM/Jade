@@ -224,7 +224,7 @@ static bool otp_migrate_url_to_data(const char* uri, size_t uri_len, uint8_t** d
     OTP_CHECK_BOOL_RETURN(http_parser_parse_url(uri, uri_len, 0, &u) == 0);
 
     if (u.field_data[UF_SCHEMA].len != 9
-        || strncmp(OTP_MIGRATE_SCHEMA + OTP_MIGRATE_SCHEMA_OFFSET, uri + u.field_data[UF_SCHEMA].off,
+        || strncmp((const char*)OTP_MIGRATE_SCHEMA + OTP_MIGRATE_SCHEMA_OFFSET, uri + u.field_data[UF_SCHEMA].off,
             u.field_data[UF_SCHEMA].len)) {
         JADE_LOGE("otp migrate uri missing expected " OTP_MIGRATE_SCHEMA_FULL " schema");
         return false;
