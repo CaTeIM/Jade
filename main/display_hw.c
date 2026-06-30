@@ -278,7 +278,7 @@ void display_hw_init(TaskHandle_t* gui_handle)
 #endif // CONFIG_LIBJADE
 }
 
-inline void display_hw_draw_bitmap(int x, int y, int w, int h, const uint16_t* color_data)
+void display_hw_draw_bitmap(int x, int y, int w, int h, const uint16_t* color_data)
 {
     JADE_ASSERT(ph);
     JADE_ASSERT(color_data);
@@ -321,7 +321,7 @@ inline void display_hw_draw_bitmap(int x, int y, int w, int h, const uint16_t* c
 }
 
 #ifdef CONFIG_DISPLAY_FULL_FRAME_BUFFER
-inline void display_hw_draw_rect(int x, int y, int w, int h, const uint16_t color)
+void display_hw_draw_rect(int x, int y, int w, int h, const uint16_t color)
 {
     const int calculatedx = x - CONFIG_DISPLAY_OFFSET_X;
     const int calculatedy = y - CONFIG_DISPLAY_OFFSET_Y;
