@@ -24,7 +24,7 @@ if [ -f /.dockerenv ]; then
 fi
 
 if [ -x "$(command -v pycodestyle)" ]; then
-    pycodestyle --max-line-length=100 *.py jadepy/*.py tools/*.py
+    pycodestyle --max-line-length=100 *.py jadepy/*.py tools/*.py tests/*.py tests/*/*.py
 fi
 
 KCONFIG_FILE=main/Kconfig.projbuild
