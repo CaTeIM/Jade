@@ -361,6 +361,8 @@ static void build_display_size_reply(const void* ctx, CborEncoder* container)
 
 void process_libjade_request(const cbor_msg_t* const ctx)
 {
+    uint8_t buf[JADE_MSG_REPLY_LEN];
+
     CborValue params;
     if (!rpc_get_map("params", &ctx->value, &params)) {
         goto cleanup;
@@ -394,7 +396,6 @@ void process_libjade_request(const cbor_msg_t* const ctx)
         jade_process_reply_to_message_bytes(ctx, output, output_len);
         return;
     } else if (IS_JADE_REQUEST("get_display_size")) {
-        uint8_t buf[128]; // sufficient
         jade_process_reply_to_message_result(ctx, buf, sizeof(buf), &ctx->source, build_display_size_reply);
         return;
     } else if (IS_JADE_REQUEST("set_camera_bytes")) {
@@ -425,6 +426,5 @@ void process_libjade_request(const cbor_msg_t* const ctx)
     }
 
 cleanup:
-    uint8_t buf[JADE_MSG_REPLY_LEN];
     jade_process_reject_message_ex(ctx, CBOR_RPC_BAD_PARAMETERS, "Unhandled error", NULL, 0, buf, sizeof(buf));
 }
