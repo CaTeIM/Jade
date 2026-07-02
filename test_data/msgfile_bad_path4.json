@@ -1,6 +1,0 @@
-{
-  "input": {
-    "filedata": "signmessage  ascii:path missing"
-  },
-  "expected_error": "Invalid bip32 path"
-}

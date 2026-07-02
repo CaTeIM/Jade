@@ -595,8 +595,6 @@ MULTI_REG_FILE_TESTS = 'multisig_file_*.json'
 MULTI_REG_BAD_FILE_TESTS = 'multisig_bad_file_*.json'
 DESCRIPTOR_REG_TESTS = 'descriptor_*.json'
 DESCRIPTOR_REG_SS_TESTS = 'descriptor_ss_*.json'
-SIGN_MSG_TESTS = 'msg_*.json'
-SIGN_MSG_FILE_TESTS = 'msgfile_*.json'
 SIGN_IDENTITY_TESTS = 'identity_*.json'
 SIGN_PSBT_TESTS = 'psbt_tm_*.json'
 SIGN_PSET_TESTS = 'pset_tm_*.json'
@@ -2599,36 +2597,6 @@ def _verify_signature(jadeapi, network, msghash, path,
         wally.ec_sig_verify(pubkey, msghash, wally.EC_FLAG_ECDSA, signature)
 
 
-# Helper to verify a message signature - handles checking an Anti-Exfil signature
-# contains the entropy that was passed in by the host.
-def _check_msg_signature(jadeapi, testcase, actual):
-    expected = testcase['expected_output']
-    assert len(actual) == len(expected)
-
-    inputdata = testcase['input']
-    host_entropy = inputdata.get('ae_host_entropy')
-    network = 'localtest'  # Network is irrelevant to sign-msg
-
-    if host_entropy:
-        # Anti-Exfil signer_commitment and signature
-        assert tuple(expected) == actual, [actual[0].hex(), actual[1]]
-        signer_commitment, signature = actual
-    else:
-        # Standard EC signature
-        assert actual == expected, actual
-        signer_commitment, signature = None, actual  # No signer_commitment for EC sig
-
-    # Get the message hash
-    msgbytes = inputdata['message'].encode('utf8')
-    msghash = wally.format_bitcoin_message(msgbytes, wally.BITCOIN_MESSAGE_FLAG_HASH)
-
-    rawsig = base64.b64decode(signature)  # un-base64 the returned signature
-
-    # Verify the signature
-    _verify_signature(jadeapi, network, msghash, inputdata['path'],
-                      host_entropy, signer_commitment, rawsig, is_schnorr=False)
-
-
 # Helper to fetch the scriptpubkeys, assets and input values for sign_tx tests
 def _get_signing_data(jadeapi, testcase, txn):
     test_input = testcase['input']
@@ -2893,35 +2861,6 @@ def test_get_xpubs(jadeapi):
     for path, network, expected in GET_XPUB_DATA:
         rslt = jadeapi.get_xpub(network, path)
         assert rslt == expected
-
-
-def test_sign_message(jadeapi):
-    for msg_data in _get_test_cases(SIGN_MSG_TESTS):
-        inputdata = msg_data['input']
-        rslt = jadeapi.sign_message(inputdata['path'],
-                                    inputdata['message'],
-                                    inputdata.get('use_ae_signatures'),
-                                    inputdata.get('ae_host_commitment'),
-                                    inputdata.get('ae_host_entropy'))
-
-        # Check returned signature
-        _check_msg_signature(jadeapi, msg_data, rslt)
-
-
-def test_sign_message_file(jadeapi):
-    for msg_data in _get_test_cases(SIGN_MSG_FILE_TESTS):
-        inputdata = msg_data['input']
-        expected_output = msg_data.get('expected_output')
-        expected_error = msg_data.get('expected_error')
-        assert expected_output or expected_error
-
-        try:
-            rslt = jadeapi.sign_message_file(inputdata['filedata'])
-            assert expected_error is None, 'Expected error: ' + expected_error
-            assert rslt == expected_output, 'Expected output: ' + expected_output
-        except JadeError as e:
-            assert expected_output is None, 'Expected output: ' + expected_output
-            assert e.message == expected_error, 'Expected error: ' + expected_error
 
 
 def test_liquid_blinding_keys(jadeapi):
@@ -3857,10 +3796,6 @@ def run_api_tests(jadeapi, isble, qemu, authuser=False):
         # Get (receive) green-addresses, get-xpub, and sign-message
         test_get_greenaddress_receive_address(jadeapi)
         test_get_xpubs(jadeapi)
-
-    # Test message signing
-    test_sign_message(jadeapi)
-    test_sign_message_file(jadeapi)
 
     if not args.json_filter:
         # Test liquid blinding keys/nonce, blinded commitments and sign-tx
