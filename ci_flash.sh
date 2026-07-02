@@ -35,6 +35,7 @@ else
     pip install --require-hashes -r requirements.txt
     pip install -r pinserver/requirements.txt
 fi
+pip install pytest
 
 if [ ! -x /usr/bin/bt-agent ]; then
     echo "bt-agent not available, skipping bluetooth OTA"
@@ -49,6 +50,10 @@ sleep 5
 python -c "from jadepy import JadeAPI; jade = JadeAPI.create_serial(device=\"${JADESERIALPORT}\", timeout=5) ; jade.connect(); jade.drain(); jade.disconnect()"
 
 python test_jade.py --log=INFO --serialport=${JADESERIALPORT} ${SKIP_ARGS}
+pytest -v --no-legacy-flow --device ${JADESERIALPORT} tests/
+if [ -x /usr/bin/bt-agent ]; then
+    pytest -v --no-legacy-flow --device ${JADESERIALPORT} --ble tests/
+fi
 
 if [ ! -f /.dockerenv ]; then
     deactivate
