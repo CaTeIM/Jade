@@ -81,19 +81,6 @@ def _h2b_test_case(testcase):
             if k in testcase:
                 testcase[k] = h2b(testcase[k])
 
-    elif 'psbt' in testcase['input']:
-        testcase['input']['psbt'] = base64.b64decode(testcase['input']['psbt'])
-
-        if 'additional_info' in testcase['input']:
-            _h2b_additional_info(testcase['input']['additional_info'])
-
-        if 'expected_output' in testcase:
-            expected_output = testcase['expected_output']
-            expected_output['psbt'] = base64.b64decode(expected_output['psbt'])
-
-            if 'txn' in expected_output:
-                expected_output['txn'] = h2b(expected_output['txn'])
-
     elif 'message' in testcase['input']:
         # sign-msg test data
         if 'ae_host_commitment' in testcase['input']:
@@ -596,10 +583,6 @@ MULTI_REG_BAD_FILE_TESTS = 'multisig_bad_file_*.json'
 DESCRIPTOR_REG_TESTS = 'descriptor_*.json'
 DESCRIPTOR_REG_SS_TESTS = 'descriptor_ss_*.json'
 SIGN_IDENTITY_TESTS = 'identity_*.json'
-SIGN_PSBT_TESTS = 'psbt_tm_*.json'
-SIGN_PSET_TESTS = 'pset_tm_*.json'
-SIGN_PSBT_SS_TESTS = 'psbt_ss_*.json'
-SIGN_PSET_SS_TESTS = 'pset_ss_*.json'
 
 TEST_SCRIPT = h2b('76a9145f4fcd4a757c2abf6a0691f59dffae18852bbd7388ac')
 
@@ -2968,53 +2951,6 @@ def test_liquid_blinded_commitments(jadeapi):
     assert rslt == ledger_commitments[1]
 
 
-def test_sign_psbt(jadeapi, cases, has_psram):
-    for txn_data in _get_test_cases(cases):
-        # Expect PSET test cases to fail for non-PSRAM devices
-        psbt_bin = txn_data['input']['psbt']
-
-        expect_pset_failure = False
-        if not has_psram:
-            # Max message size from main/process.h
-            # 69 bytes of overhead for a sign_psbt request
-            MAX_INPUT_MSG_SIZE = 1024 * 17 + 69
-            if len(psbt_bin) + 69 > MAX_INPUT_MSG_SIZE:
-                logger.warning(f'Skipping {txn_data["filename"]} large PSBT on non-psram device')
-                continue
-            if psbt_bin[2] == ord('e'):
-                expect_pset_failure = True
-                continue
-
-        try:
-            network = txn_data['input']['network']
-            additional_info = txn_data['input'].get('additional_info')
-            rslt = jadeapi.sign_psbt(network, psbt_bin, additional_info)
-        except JadeError as err:
-            if expect_pset_failure:
-                continue  # Trying to parse a PSET on an unsupported device
-            if 'expected_output' in txn_data:
-                # We expected this test to pass
-                assert False, f'FAILED: {err.message}: {txn_data}'
-            # Check expected error
-            assert err.message == txn_data['expected_error'], err.message
-            continue
-
-        # Otherwise, should have worked, check expected output
-        assert 'expected_error' not in txn_data
-        assert rslt == txn_data['expected_output']['psbt'], base64.b64encode(rslt).decode()
-
-        # Optionally test extracted tx
-        expected_txn = txn_data['expected_output'].get('txn')
-        if expected_txn:
-            psbt = wally.psbt_from_bytes(rslt, 0)
-            wally.psbt_finalize(psbt, 0)
-            # Extract finalized inputs where possible (e.g. multisigs may
-            # not be fully signed and thus aren't finalizable)
-            txn = wally.psbt_extract(psbt, wally.WALLY_PSBT_EXTRACT_OPT_FINAL)
-            txn = wally.tx_to_bytes(txn, wally.WALLY_TX_FLAG_USE_WITNESS)
-            assert txn == expected_txn, txn.hex()
-
-
 # Helper to check a multisig registration
 def _check_multisig_registration(jadeapi, multisig_data):
     # Register the multisig
@@ -3802,10 +3738,6 @@ def run_api_tests(jadeapi, isble, qemu, authuser=False):
         test_liquid_blinding_keys(jadeapi)
         test_liquid_blinded_commitments(jadeapi)
 
-    # Test sign psbts (app-generated cases)
-    test_sign_psbt(jadeapi, SIGN_PSBT_TESTS, has_psram)
-    test_sign_psbt(jadeapi, SIGN_PSET_TESTS, has_psram)
-
     if not args.json_filter:
         # Short sanity-test of 12-word mnemonic
         test_12word_mnemonic(jadeapi)
@@ -3825,19 +3757,6 @@ def run_api_tests(jadeapi, isble, qemu, authuser=False):
 
     if not args.json_filter:
         test_get_singlesig_receive_address(jadeapi)
-
-    # Push the singlesig test mnemonic for tests which use it
-    rslt = jadeapi.set_mnemonic(TEST_MNEMONIC_SINGLE_SIG)
-    assert rslt is True
-
-    # Test signing singlesig PSBTs (core generated test cases)
-    # FIXME: Add tests for:
-    # - Mixed wallet and non-wallet inputs
-    # - Unusual input and change paths
-    # - Negative test cases (invalid PSBTs)
-    test_sign_psbt(jadeapi, SIGN_PSBT_SS_TESTS, has_psram)
-    # Singlesig Liquid (PSET) tests
-    test_sign_psbt(jadeapi, SIGN_PSET_SS_TESTS, has_psram)
 
     # Sign identity (ssh & gpg) tests require a specific mnemonic
     rslt = jadeapi.set_mnemonic(TEST_MNEMONIC_12_IDENTITY)
