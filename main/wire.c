@@ -115,7 +115,7 @@ void handle_data(uint8_t* full_data_in, size_t* read_ptr, const size_t new_data_
 
     // Buffer is stale if we had bytes already and the timeout has expired
     bool have_stale = *read_ptr && now > *last_processing_time + TIMEOUT_TICKS;
-    JADE_LOGI("%u new of %u total %sbytes at tick %lu (prev %lu) from %d", new_data_len, *read_ptr + new_data_len,
+    JADE_LOGD("%u new of %u total %sbytes at tick %lu (prev %lu) from %d", new_data_len, *read_ptr + new_data_len,
         have_stale ? "stale " : "", now, *last_processing_time, ctx.source);
 
     while (true) {
