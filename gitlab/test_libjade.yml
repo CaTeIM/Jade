@@ -17,6 +17,20 @@ test_libjade:
     - python ./test_jade.py --log CRITICAL --libjade
     - pytest -v -s --libjade tests
 
+test_libjade_selfcheck:
+  extends: .libjade_test_template
+  stage: test
+  script:
+    - export ASAN_OPTIONS=symbolize=1,detect_leaks=0
+    - export UBSAN_OPTIONS=print_stacktrace=1
+    - export ASAN_SO=/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so
+    - export LD_LIBRARY_PATH=$PWD/build_linux/libjade
+    - |-
+      for f in libjade/selfcheck/*.c; do
+        ./libjade/make_libjade.sh Sanitize -DSELFCHECK=$(basename ${f%.*})
+        LD_PRELOAD=$ASAN_SO python ./jade_cli.py --device libjade selfcheck
+      done
+
 test_libjade_sanitize:
   extends: .libjade_test_template
   stage: test
