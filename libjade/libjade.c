@@ -120,8 +120,18 @@ void idletimer_set_min_timeout_secs(uint16_t min_timeout_secs) {};
 esp_log_level_t _libjade_log_level = ESP_LOG_NONE;
 #endif
 
-// main/selfcheck.c
-bool debug_selfcheck(jade_process_t* process) { return true; }
+#ifndef SELFCHECK
+// Include the default selfcheck impl
+#include "main/selfcheck.c"
+#else
+// Include a user-defined selfcheck impl
+// clang-format off
+#define HSTR(x) #x
+#define XSTR(x) HSTR(x)
+#define SELFCHECK_FILE(dir, base) XSTR(dir/base.c)
+#include SELFCHECK_FILE(selfcheck, SELFCHECK)
+// clang-format on
+#endif
 
 esp_app_desc_t running_app_info = { "123456789012345678901" };
 esp_chip_info_t chip_info = { 0 };

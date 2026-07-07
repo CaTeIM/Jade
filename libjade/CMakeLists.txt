@@ -123,6 +123,14 @@ set_source_files_properties(libjade.c PROPERTIES COMPILE_OPTIONS
   "-Wall;-W;-Wno-format;-Wno-unused-function;-Wno-unused-parameter;-Wno-sign-compare;-Wno-missing-field-initializers;-Wno-narrowing")
 target_compile_definitions(jade PRIVATE LIBJADE_BUILD)
 
+# libjade selfcheck overrides - used for internal firmware unit tests.
+# build with -DSELFCHECK=<test> to link libjade/selfcheck/<test>.c
+# Note SELFCHECK is ignored for daemon builds.
+set(SELFCHECK "" CACHE STRING "Link a given debug_selfcheck implementation for testing")
+if(NOT "${SELFCHECK}" STREQUAL "")
+    target_compile_definitions(jade PRIVATE SELFCHECK=${SELFCHECK})
+endif()
+
 # libjade.a
 add_library(jade_static STATIC ${COMMON_SRC})
 target_link_libraries(jade_static PRIVATE m z mbedtls mbedcrypto mbedx509 bcur)
