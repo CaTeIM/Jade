@@ -54,17 +54,18 @@ def _h2b_test_case(value):
 
 
 def _read_json_file(filename):
-    """Helper to read a json file into a dict"""
+    """Helper to read a json file and attach its filename for dict test cases."""
     with open(filename, 'r') as json_file:
         ret = json.load(json_file)
-        ret['filename'] = filename  # Add filename for debugging
+        if isinstance(ret, dict):
+            ret['filename'] = filename  # Add filename for debugging
         return ret
 
 
 def _get_test_cases(pattern):
     """Helper to read json test files into a list"""
     filenames = [f for f in glob.glob(pattern)]
-    return (_h2b_test_case(_read_json_file(f)) for f in filenames)
+    return ((_h2b_test_case(_read_json_file(f)), f) for f in filenames)
 
 
 def with_test_cases(pattern):
@@ -80,7 +81,7 @@ def with_test_cases(pattern):
     def make_id(filename):
         return filename.rpartition('/')[-1].rpartition('.')[0]
 
-    params = [pytest.param(c, id=make_id(c['filename'])) for c in test_cases]
+    params = [pytest.param(case, id=make_id(filename)) for case, filename in test_cases]
     assert len(params)  # Must match some files
     return pytest.mark.parametrize('test_case', params)
 
