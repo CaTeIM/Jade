@@ -16,11 +16,17 @@ logger = logging.getLogger('jade.tests')
 
 # Default test mnemonics
 mnemonics = SimpleNamespace(**{
+    # Default mnemonic, used primarily for multisig tests
     'default': 'fish inner face ginger orchard permit useful method fence \
 kidney chuckle party favorite sunset draw limb science crane oval letter \
 slot invite sadness banana',
+    # Default singlesig mnemonic
     'singlesig': 'paddle puppy easily actor poet apart screen \
-drastic city front predict damp'
+drastic city front predict damp',
+    # Used to ensure the on-device cached mnemonic is changed to an
+    # otherwise unused mnemonic for tests that set a custom mnemonic/seed
+    'invalidatecache': 'abandon abandon abandon abandon abandon abandon abandon \
+    abandon abandon abandon abandon cactus'
 })
 
 
