@@ -25,6 +25,7 @@
 
 #include <wally_script.h>
 
+#include <inttypes.h>
 #include <string.h>
 #include <time.h>
 
@@ -715,19 +716,19 @@ static bool verify_address(const address_data_t* const addr_data)
     // ... and register against the activity - we will await btn events later
     gui_activity_register_event(act, GUI_BUTTON_EVENT, ESP_EVENT_ANY_ID, sync_wait_event_handler, event_data);
 
-    size_t index = 0;
-    size_t confirmed_at_index = index;
+    uint32_t index = 0;
+    uint32_t confirmed_at_index = index;
     bool verified = false;
     const size_t address_search_batch_size = ADDRESS_SEARCH_BATCH_SIZE(registered_wallet);
-    const size_t num_indexes_to_reconfirm = NUM_INDEXES_TO_RECONFIRM(registered_wallet);
+    const uint32_t num_indexes_to_reconfirm = NUM_INDEXES_TO_RECONFIRM(registered_wallet);
     while (!verified) {
         gui_set_current_activity(act);
 
         // Update the progress bar and text label
         char idx_txt[12];
-        const int ret = snprintf(idx_txt, sizeof(idx_txt), "%u", index);
+        const int ret = snprintf(idx_txt, sizeof(idx_txt), "%" PRIu32, index);
         JADE_ASSERT(ret > 0 && ret < sizeof(idx_txt));
-        update_progress_bar(&progress_bar, num_indexes_to_reconfirm, index - confirmed_at_index);
+        update_progress_bar(&progress_bar, (size_t)num_indexes_to_reconfirm, (size_t)(index - confirmed_at_index));
         gui_update_text(index_text, idx_txt);
 
         // Search a small batch of paths for the address script
@@ -755,7 +756,7 @@ static bool verify_address(const address_data_t* const addr_data)
         if (verified) {
             // Address script found and matched - verified
             // NOTE: 'index' will hold the relevant value
-            JADE_LOGI("Found script at index: %u", index);
+            JADE_LOGI("Found script at index: %" PRIu32, index);
             break;
         }
 
@@ -763,7 +764,7 @@ static bool verify_address(const address_data_t* const addr_data)
         if (index >= confirmed_at_index + num_indexes_to_reconfirm) {
             char next_n_addrs[32];
             const int ret
-                = snprintf(next_n_addrs, sizeof(next_n_addrs), "next %u addresses?", num_indexes_to_reconfirm);
+                = snprintf(next_n_addrs, sizeof(next_n_addrs), "next %" PRIu32 " addresses?", num_indexes_to_reconfirm);
             JADE_ASSERT(ret > 0 && ret < sizeof(next_n_addrs));
 
             const char* message[] = { "Failed to verify, check", next_n_addrs };
@@ -816,7 +817,7 @@ static bool verify_address(const address_data_t* const addr_data)
 
     if (verified) {
         char pathstr[48];
-        const int ret = snprintf(pathstr, sizeof(pathstr), "%s/%u", label, index);
+        const int ret = snprintf(pathstr, sizeof(pathstr), "%s/%" PRIu32, label, index);
         JADE_ASSERT(ret > 0 && ret < sizeof(pathstr));
         await_message_2("Address verified:", pathstr);
     } else {
