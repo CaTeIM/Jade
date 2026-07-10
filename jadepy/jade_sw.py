@@ -21,7 +21,7 @@ except Exception as _:
 #
 class JadeSoftwareImpl:
 
-    _log_levels = {
+    ESP_LOG_LEVELS = {
         logging.DEBUG: 1,
         logging.INFO: 2,
         logging.WARNING: 3,
@@ -39,7 +39,7 @@ class JadeSoftwareImpl:
         assert self.libjade is None
         self.libjade = _libjade
         # Respect the python log level for Jade logging
-        log_level = self._log_levels[logger.getEffectiveLevel()]
+        log_level = self.ESP_LOG_LEVELS[logger.getEffectiveLevel()]
         self.libjade.libjade_set_log_level(log_level)
         # Starts the firmware in a separate thread
         self.libjade.libjade_start()
