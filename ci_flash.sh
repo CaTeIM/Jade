@@ -49,6 +49,15 @@ python jade_ota.py --push-mnemonic --log=INFO --serialport=${JADESERIALPORT} --f
 sleep 5
 python -c "from jadepy import JadeAPI; jade = JadeAPI.create_serial(device=\"${JADESERIALPORT}\", timeout=5) ; jade.connect(); jade.drain(); jade.disconnect()"
 
+function reset_permissions {
+    if [ -f /.dockerenv ]; then
+        # Ensure test reports/pin files are owned by the user outside
+        # the container when we are run under docker compose.
+        chown -f $(stat -c "%u:%g" jade_ota.py) *.xml *.pin || true
+    fi
+}
+trap reset_permissions EXIT
+
 python test_jade.py --log=INFO --serialport=${JADESERIALPORT} ${SKIP_ARGS}
 pytest -v --no-legacy-flow --device ${JADESERIALPORT} tests/
 if [ -x /usr/bin/bt-agent ]; then

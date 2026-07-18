@@ -3209,11 +3209,6 @@ if __name__ == '__main__':
                         dest='qemu',
                         help='Skip tests which appear problematic on qemu hw emulator',
                         default=False)
-    parser.add_argument('--nolegacyflow',
-                        action='store_true',
-                        dest='no_legacy_flow',
-                        help='Do not use the legacy sign_tx flow (use the AE flow instead)',
-                        default=False)
     parser.add_argument("--sample-percent",
                         action="store",
                         dest="sample_percent",

@@ -134,17 +134,25 @@ def pytest_addoption(parser):
     )
 
 
+def _remove_pin_files():
+    """Helper to remove pinserver .pin files from testing"""
+    for f in glob.glob("./*.pin"):
+        os.remove(f)
+
+
 def pytest_configure(config):
     # pytest: global test initialization
     config.addinivalue_line('markers',
                             'mnemonic(value): set a custom Jade mnemonic before the test')
     set_jade_config(JadeConfig(config))
+    _remove_pin_files()
 
 
 def pytest_unconfigure(config):
     # pytest: global test teardown
     if get_jade_config():
         get_jade_config().disconnect()
+    _remove_pin_files()
 
 
 def _get_test_mnemonic(item):
