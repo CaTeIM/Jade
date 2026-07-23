@@ -268,6 +268,9 @@ static void* jade_fw_thread_fn(void* arg)
 // External API:
 static pthread_t _libjade_thread_id = 0; // Thread ID of the FW thread
 
+// set in libjade_send() to decide which ringbuffer to use
+static __thread bool _libjade_is_internal_msg = false;
+
 void libjade_start(void)
 {
     ensure_boot_flags();
@@ -300,6 +303,9 @@ void libjade_stop(void)
     serial_out = NULL;
     vRingbufferDelete(internal_out);
     internal_out = NULL;
+    vRingbufferDelete(libjade_out);
+    libjade_out = NULL;
+    _libjade_is_internal_msg = false;
     // clear keychain
     keychain_clear();
 }
@@ -308,38 +314,62 @@ static uint8_t _libjade_serial_data_in[MAX_INPUT_MSG_SIZE + 1] = { 0 };
 static size_t _libjade_serial_read_ptr = 0;
 static TickType_t _libjade_last_processing_time = 0;
 
+// Mutex to serialize calls to libjade_send() / handle_data()
+static pthread_mutex_t _libjade_send_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 bool libjade_send(const uint8_t* data, size_t len)
 {
-    // Pass messages as though they come from the serial interface
-    _libjade_serial_data_in[0] = SOURCE_SERIAL;
+    pthread_mutex_lock(&_libjade_send_mutex);
+
+    // Determine if this message is an internal libjade request, and if so
+    // route it to the libjade handler instead of the standard serial buffer.
+    // NOTE: This assumes that libjade internal messages are always fully sent in a
+    //       single write. If an internal message is sent in parts, later parts will
+    //       go through serial handling and be rejected.
+    const bool is_libjade_req = len > strlen(LIBJADE_REQUEST_METHOD)
+        && memmem(data, len, LIBJADE_REQUEST_METHOD, strlen(LIBJADE_REQUEST_METHOD)) != NULL;
+    _libjade_serial_data_in[0] = is_libjade_req ? SOURCE_LIBJADE : SOURCE_SERIAL;
+
     while (len) {
         const size_t remaining_bytes = MAX_INPUT_MSG_SIZE - _libjade_serial_read_ptr;
         const size_t copy_len = len > remaining_bytes ? remaining_bytes : len;
-
         JADE_ASSERT(_libjade_serial_read_ptr + copy_len <= MAX_INPUT_MSG_SIZE);
         memcpy(_libjade_serial_data_in + 1 + _libjade_serial_read_ptr, data, copy_len);
-
-        // Pass data through to the common handler
         handle_data(_libjade_serial_data_in, &_libjade_serial_read_ptr, copy_len, &_libjade_last_processing_time);
         data += copy_len;
         len -= copy_len;
     }
+
+    if (is_libjade_req) {
+        _libjade_is_internal_msg = true;
+    }
+
+    pthread_mutex_unlock(&_libjade_send_mutex);
     return true;
 }
 
 uint8_t* libjade_receive(const unsigned int timeout, size_t* len_out)
 {
-    // timeout is in seconds, convert to milliseconds
+    const bool is_internal_msg = _libjade_is_internal_msg;
+    RingbufHandle_t ringbuf = is_internal_msg ? libjade_out : serial_out;
+
     const unsigned int ms = timeout * 1000;
-    void* item = xRingbufferReceive(serial_out, len_out, ms / portTICK_PERIOD_MS);
+    void* item = xRingbufferReceive(ringbuf, len_out, ms / portTICK_PERIOD_MS);
     if (!item) {
-        // No message available
-        *len_out = 0;
+        *len_out = 0; // No message available
+    }
+    if (is_internal_msg) {
+        _libjade_is_internal_msg = item != NULL; // Mark internal msgs for libjade_release
     }
     return item;
 }
 
-void libjade_release(uint8_t* data) { vRingbufferReturnItem(serial_out, (void*)data); }
+void libjade_release(uint8_t* data)
+{
+    RingbufHandle_t ringbuf = _libjade_is_internal_msg ? libjade_out : serial_out;
+    vRingbufferReturnItem(ringbuf, (void*)data);
+    _libjade_is_internal_msg = false; // Reset until next message
+}
 
 void libjade_set_log_level(int level)
 {

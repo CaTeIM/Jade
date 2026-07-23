@@ -91,7 +91,7 @@ static bool handle_immediate_message(const cbor_msg_t* const ctx)
             }
         }
 #if defined(CONFIG_DEBUG_MODE) && defined(CONFIG_LIBJADE)
-        else if (method_len == strlen("libjade_request") && !strncmp(method, "libjade_request", method_len)) {
+        else if (method_len == strlen(LIBJADE_REQUEST_METHOD) && !strncmp(method, LIBJADE_REQUEST_METHOD, method_len)) {
             process_libjade_request(ctx);
             return true;
         }
