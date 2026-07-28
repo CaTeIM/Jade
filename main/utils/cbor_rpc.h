@@ -47,7 +47,6 @@ bool rpc_is_method(const CborValue* value, const char* method);
 // Typed/checked getters for various nodes/data-types.
 // _or() variants accept and return a default value if the field is not present.
 bool rpc_has_field_data(const char* field, const CborValue* value);
-void rpc_get_raw_string_ptr(const CborValue* value, const char** data, size_t* size);
 void rpc_get_string_ptr(const char* field, const CborValue* value, const char** data, size_t* size);
 void rpc_get_string(const char* field, size_t max, const CborValue* value, char* data, size_t* written);
 void rpc_get_raw_bytes_ptr(const CborValue* value, const uint8_t** data, size_t* size);
