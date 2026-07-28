@@ -33,10 +33,10 @@ static const TickType_t TIMEOUT_TICKS = 2000 / portTICK_PERIOD_MS;
 // Returns its length if valid, 0 if invalid.
 static size_t get_msg_len(cbor_msg_t* ctx, const uint8_t* const data_in, const size_t read_len)
 {
-    const int flags = CborValidateCompleteData;
-    const CborError cberr = cbor_parser_init(data_in, read_len, flags, &ctx->parser, &ctx->value);
+    const CborError cberr = cbor_parser_init(data_in, read_len, 0, &ctx->parser, &ctx->value);
     if (cberr == CborNoError) {
-        // If we can parse the value, and it may be an RPC message, return its length
+        // If we can parse the value, and it may be an RPC message, return its length.
+        // Note cbor_value_advance() ensures the message is valid and complete.
         CborValue tmp_value = ctx->value;
         if (cbor_value_advance(&tmp_value) == CborNoError && cbor_value_is_map(&ctx->value)) {
             return tmp_value.source.ptr - data_in;

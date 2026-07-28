@@ -24,6 +24,12 @@ static const uint8_t CBOR_TEXT_MASK = 0b01100000;
 static const uint8_t CBOR_TYPE_MASK = 0b11100000;
 static const uint8_t CBOR_LEN_MASK = 0b00011111;
 
+bool rpc_untrusted_parser_init(const uint8_t* cbor, const size_t cbor_len, CborParser* parser, CborValue* result)
+{
+    return cbor_parser_init(cbor, cbor_len, 0, parser, result) == CborNoError && cbor_value_is_valid(result)
+        && cbor_value_validate_basic(result) == CborNoError;
+}
+
 static bool rpc_get_data(const char* field, const CborValue* value, CborValue* result)
 {
     JADE_ASSERT(field);

@@ -29,6 +29,10 @@
 // Plenty for green wallets, bip44 etc. with plenty to spare.
 #define MAX_PATH_LEN 16
 
+// Initialize a parser for untrusted cbor input
+WARN_UNUSED_RESULT bool rpc_untrusted_parser_init(
+    const uint8_t* cbor, size_t cbor_len, CborParser* parser, CborValue* result);
+
 WARN_UNUSED_RESULT bool cbor_print_error_for(const char* id, int code, const char* message, const uint8_t* data,
     size_t datalen, uint8_t* buffer, size_t buffer_len, size_t* towrite);
 
