@@ -37,8 +37,7 @@ static void reply_signatures(const void* ctx, CborEncoder* container)
 static void get_digests_allocate(
     const char* field, const CborValue* value, rsa_signing_digest_t** data, size_t* written)
 {
-    JADE_ASSERT(field);
-    JADE_ASSERT(value);
+    JADE_ASSERT(field && value);
     JADE_INIT_OUT_PPTR(data);
     JADE_INIT_OUT_SIZE(written);
 
@@ -62,26 +61,21 @@ static void get_digests_allocate(
     rsa_signing_digest_t* const digests = JADE_CALLOC(num_array_items, sizeof(rsa_signing_digest_t));
 
     for (size_t i = 0; i < num_array_items; ++i) {
-        JADE_ASSERT(!cbor_value_at_end(&arrayItem));
-        rsa_signing_digest_t* const digest = digests + i;
+        rsa_signing_digest_t* const p = digests + i;
+        size_t len;
 
-        const uint8_t* data = NULL;
-        size_t data_len = 0;
-        rpc_get_raw_bytes_ptr(&arrayItem, &data, &data_len);
-        if (!data || data_len != sizeof(digest->digest)) {
-            free(digests);
-            return;
+        if (cbor_value_at_end(&arrayItem) || !cbor_value_is_byte_string(&arrayItem)
+            || cbor_value_get_string_length(&arrayItem, &len) != CborNoError || len != sizeof(p->digest)
+            || cbor_value_copy_byte_string(&arrayItem, p->digest, &len, &arrayItem) != CborNoError
+            || len != sizeof(p->digest)) {
+            goto fail;
         }
-
-        memcpy(digest->digest, data, data_len);
-        digest->digest_len = data_len;
-
-        cberr = cbor_value_advance(&arrayItem);
-        JADE_ASSERT(cberr == CborNoError);
+        p->digest_len = len;
     }
 
     cberr = cbor_value_leave_container(&result, &arrayItem);
     if (cberr != CborNoError) {
+    fail:
         free(digests);
         return;
     }
