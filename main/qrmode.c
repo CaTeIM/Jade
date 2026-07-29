@@ -1724,7 +1724,7 @@ static bool handle_jade_reply_http_request_show_qr(const char* message[], const 
     // Parse the received message
     CborParser parser;
     CborValue root;
-    const CborError cberr = cbor_parser_init(msg, len, CborValidateBasic, &parser, &root);
+    const CborError cberr = cbor_parser_init(msg, len, 0, &parser, &root);
     if (cberr != CborNoError || !rpc_message_valid(&root)) {
         JADE_LOGE("Invalid cbor message");
         goto cleanup;

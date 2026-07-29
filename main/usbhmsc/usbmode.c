@@ -532,7 +532,7 @@ static bool handle_ota_reply(const uint8_t* msg, const size_t len, void* ctx)
 
     CborParser parser;
     CborValue message;
-    const CborError cberr = cbor_parser_init(msg, len, CborValidateBasic, &parser, &message);
+    const CborError cberr = cbor_parser_init(msg, len, 0, &parser, &message);
     if (cberr != CborNoError || !rpc_message_valid(&message)) {
         JADE_LOGE("Invalid cbor message");
     } else {
