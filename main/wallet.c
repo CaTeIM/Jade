@@ -1301,6 +1301,9 @@ bool wallet_get_hdkey(const uint32_t* path, const size_t path_len, const uint32_
     if (path_len == 0) {
         // Just copy root ext key
         memcpy(output, &keychain_get()->xpriv, sizeof(struct ext_key));
+        if (flags & BIP32_FLAG_KEY_PUBLIC) {
+            JADE_WALLY_VERIFY(bip32_key_strip_private_key(output));
+        }
     } else {
         const int wret = bip32_key_from_parent_path(&keychain_get()->xpriv, path, path_len, flags, output);
         if (wret != WALLY_OK) {
