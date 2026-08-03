@@ -26,7 +26,7 @@ static inline void* jade_calloc_dram(const char* file, const int line, const siz
 // Freed with normal heap_caps_free() or free() functions.
 static inline void* jade_malloc_prefer_spiram(const char* file, const int line, const size_t size)
 {
-    void* ptr = heap_caps_malloc_prefer(size, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT);
+    void* ptr = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT);
     JADE_ASSERT_MSG(ptr, "heap_caps_malloc_prefer failed %s:%d", file, line);
     return ptr;
 }
@@ -41,7 +41,7 @@ static inline void* jade_malloc_spiram_aligned(
 
 static inline void* jade_calloc_prefer_spiram(const char* file, const int line, const size_t num, const size_t size)
 {
-    void* ptr = heap_caps_calloc_prefer(num, size, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT);
+    void* ptr = heap_caps_calloc_prefer(num, size, 2, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM, MALLOC_CAP_DEFAULT);
     JADE_ASSERT_MSG(ptr, "heap_caps_calloc_prefer failed %s:%d", file, line);
     return ptr;
 }
