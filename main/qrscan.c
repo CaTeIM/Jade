@@ -128,7 +128,7 @@ bool scan_qr(const size_t width, const size_t height, const uint8_t* data, const
     // Create the quirc structs
     qr_data->q = quirc_new();
     JADE_ASSERT(qr_data->q);
-    qr_data->ds = JADE_MALLOC_DRAM(sizeof(struct datastream));
+    qr_data->ds = JADE_MALLOC_PREFER_DRAM(sizeof(struct datastream));
     JADE_ASSERT(qr_data->ds);
 
     // Also correctly size the internal image buffer since we know the size of the camera images.
@@ -168,7 +168,7 @@ bool jade_camera_scan_qr(
     JADE_ASSERT(!qr_data->q);
     qr_data->q = quirc_new();
     JADE_ASSERT(qr_data->q);
-    qr_data->ds = JADE_MALLOC_DRAM(sizeof(struct datastream));
+    qr_data->ds = JADE_MALLOC_PREFER_DRAM(sizeof(struct datastream));
     JADE_ASSERT(qr_data->ds);
 
     // Also correctly size the internal image buffer since we know the size of the camera images.
