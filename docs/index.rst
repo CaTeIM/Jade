@@ -616,7 +616,7 @@ Jade can store up to 16 user-defined miniscript descriptor wallet configurations
             "network": "mainnet",
             "descriptor_name": "inheritance",
             "descriptor": "wsh(or_d(pk(@0/<0;1>/*),and_v(v:multi(2,@1/<0;1>/*,@2/<0;1>/*),older(4320))))",
-            "datavalues": [
+            "datavalues": {
                 {
                     "key": "@0",
                     "value": "[1bf12fe0/48'/1'/0'/2']tpubDEHXLZfMAAM5duEnX6SSnZjGYbrxqXvRJmMxw8MFwr3gu4LC4DSxR9KVEfVDVcZxre4XL5tGcwVRrHwQ9euTMnSq6P6BqREemaqrFsC96Fy",
@@ -629,13 +629,14 @@ Jade can store up to 16 user-defined miniscript descriptor wallet configurations
                     "key": "@2",
                     "value": "[e1640396/48'/1'/0'/2']tpubDFgDvZifofePphQiVjLfkov8YTDg3UPuHRvt6LzbySYMZQhN19p6zvR7NTEXi1ZJAMNostHMTnz2sfXXYcJFQqtyCnNuUfgYqsahxTLGJq2",
                 }
-            ]
+            }
         }
     }
 
 * 'descriptor_name' is a string, and must be less than 16 characters long.  Using an existing name will overwrite the corresponding descriptor registration record.
-* 'descriptor' is the descriptor string.  It must be a 'wallet policy' miniscript expression with the keys presented in the accompanying datavalues map.
-* 'datavalues' is the map of signers' keys, which must include an entry for the Jade signer.
+* 'descriptor' is the descriptor string.  It must be a BIP 388 'wallet policy' miniscript expression with the keys presented in the accompanying datavalues map.
+* 'datavalues' is the map of signers' keys, which must include an entry for the Jade signer. For Liquid confidential descriptors, the blinding key placeholder used in the "ct()" wrapper must be named "@B".
+
 
 .. _register_descriptor_reply:
 

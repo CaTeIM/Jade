@@ -1153,6 +1153,14 @@ class JadeAPI:
             Name to use to identify this descriptor wallet registration record.
             If a registration record exists with the name given, that record is overwritten.
 
+        descriptor_script : string
+            The text of the output descriptor as a BIP 388 wallet policy.
+
+        datavalues : dict
+            A dict of BIP 388 key placeholders (e.g. "@1") to key expressions. For
+            Liquid confidential descriptors, the blinding key placeholder used
+            in the "ct()" wrapper must be named "@B".
+
         Returns
         -------
         bool
