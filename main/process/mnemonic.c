@@ -971,10 +971,11 @@ static bool expand_words(const uint8_t* bytes, const size_t bytes_len, char* buf
         read_ptr = end_ptr + 1;
     }
 
-    // Return true if we have successfully consumed all input
+    // Return true if we have successfully consumed all input and
+    // expanded at least one word
     JADE_ASSERT(write_pos <= buf_len);
     *written = write_pos;
-    return *end_ptr == '\0';
+    return write_pos != 0 && *end_ptr == '\0';
 }
 
 static bool import_bcur_bip39(
@@ -1120,11 +1121,9 @@ bool import_and_validate_mnemonic(qr_data_t* qr_data)
     // Try to import mnemonic, validate, and if all good copy over into the qr_data
     size_t written = 0;
     bool ret;
-    if (import_mnemonic(qr_data->data, qr_data->len, mnemonic, sizeof(mnemonic), &written)
+    if (import_mnemonic(qr_data->data, qr_data->len, mnemonic, sizeof(mnemonic), &written) && written
+        && written <= sizeof(mnemonic) && mnemonic[written - 1] == '\0'
         && bip39_mnemonic_validate(NULL, mnemonic) == WALLY_OK) {
-        JADE_ASSERT(written);
-        JADE_ASSERT(written <= sizeof(mnemonic));
-        JADE_ASSERT(mnemonic[written - 1] == '\0');
 
         memcpy(qr_data->data, mnemonic, written);
         qr_data->len = written - 1; // Do not include nul-terminator
