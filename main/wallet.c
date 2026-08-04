@@ -138,11 +138,11 @@ bool wallet_bip32_path_as_str(
         }
 
         const size_t freespace = output_len - pos;
-        const int nchars = snprintf(output + pos, freespace, fmt, unharden(parts[i]));
-        if (nchars < 0 || nchars > freespace) {
+        const int ret = snprintf(output + pos, freespace, fmt, unharden(parts[i]));
+        if (ret < 0 || ret >= freespace) {
             return false;
         }
-        pos += nchars;
+        pos += ret;
     }
     return true;
 }
