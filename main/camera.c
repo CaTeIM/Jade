@@ -513,11 +513,12 @@ static void jade_camera_task(void* data)
 
     // Finished with camera - free everything and kill task
     if (camera_config->show_ui) {
-        SENSITIVE_POP(image_buffer);
-        free(image_buffer);
         // Null picture under gui_mutex so the GUI task cannot call display_picture()
         // with our stack-allocated 'pic' after this task's stack is freed.
-        gui_clear_picture(image_node);
+        const bool repaint_parent = false;
+        gui_update_picture(image_node, NULL, repaint_parent);
+        SENSITIVE_POP(image_buffer);
+        free(image_buffer);
     }
     camera_task_running = false;
     camera_post_exit_event_and_await_death();
