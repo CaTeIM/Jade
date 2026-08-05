@@ -55,9 +55,10 @@ struct _activity_holder_t {
 };
 
 typedef struct {
-    gui_view_node_t* node_to_repaint;
-    gui_activity_t* new_activity;
-    activity_holder_t* to_free;
+    gui_view_node_t* node_to_repaint; // Node to repaint (repaint request)
+    gui_activity_t* new_activity; // New activity to set
+    activity_holder_t* to_free; // List of activities to free
+    SemaphoreHandle_t done; // Optional: signaled after job completes
 } gui_task_job_t;
 
 // Main mutex used to synchronize all gui node and activity data
@@ -2359,11 +2360,21 @@ static size_t handle_gui_input_queue(bool* switched_activities)
     while ((job = xRingbufferReceive(gui_input_queue, &item_size, 10 / portTICK_PERIOD_MS))) {
         JADE_ASSERT(item_size == sizeof(gui_task_job_t));
 
-        // *Either* repainting a node *or* moving to a whole new activity
-        JADE_ASSERT(!job->node_to_repaint != !job->new_activity);
+        // A job can be be ONE of the following:
+        // - repainting a node, OR
+        // - moving to another activity and optionally freeing other activities
         activity_holder_t* to_free = job->to_free;
 
-        if (job->new_activity && job->new_activity != current_activity) {
+        if (job->node_to_repaint) {
+            // Repaint job
+            JADE_ASSERT(!job->new_activity && !job->to_free);
+            if (job->node_to_repaint->activity == current_activity) {
+                // Node belongs to the current activity: repaint it
+                repaint_node(job->node_to_repaint);
+            }
+        } else if (!job->new_activity) {
+            JADE_ASSERT(false); // Not a repaint or a move to new activity job
+        } else if (job->new_activity != current_activity) {
             *switched_activities = true;
 
             // Unregister the old activity's event handlers
@@ -2384,10 +2395,8 @@ static size_t handle_gui_input_queue(bool* switched_activities)
             // free the old activities *before* the code below runs, as it makes allocations.
             // If we defer the 'frees' until later, we end up fragmenting the memory, which is
             // particularly detrimental to no-psram devices.
-            if (to_free) {
-                free_activities(to_free);
-                to_free = NULL;
-            }
+            free_activities(to_free);
+            to_free = NULL;
 
             // Update the status bar text for the new activity
             if (current_activity->status_bar) {
@@ -2408,18 +2417,19 @@ static size_t handle_gui_input_queue(bool* switched_activities)
             }
         }
 
-        // May have been passed a node to repaint
-        // Only do so if it belongs on the current activity and we haven't just switched
-        if (job->node_to_repaint && job->node_to_repaint->activity == current_activity && !job->new_activity) {
-            // Issue repaint command on the node passed
-            repaint_node(job->node_to_repaint);
-        }
+        // Save done semaphore before returning the ringbuffer slot
+        SemaphoreHandle_t done = job->done;
 
         // Return the ringbuffer slot
         vRingbufferReturnItem(gui_input_queue, job);
 
         // Free any outstanding activities, if required (and not already done)
         free_activities(to_free);
+
+        // Signal completion if a semaphore was provided
+        if (done) {
+            xSemaphoreGive(done);
+        }
 
         // Count jobs handled so we can return
         ++jobs_handled;
@@ -2598,6 +2608,13 @@ void gui_set_activity_initial_selection(gui_view_node_t* node)
     node->activity->initial_selection = node;
 }
 
+static void gui_post(const gui_task_job_t* task, const char* task_name)
+{
+    while (xRingbufferSend(gui_input_queue, task, sizeof(*task), 500 / portTICK_PERIOD_MS) != pdTRUE) {
+        JADE_LOGW("Failed to send %s to gui", task_name);
+    }
+}
+
 // Post a node to the gui task to be repainted
 // Should ultimately result in a call to repaint_node() from the gui_task.
 // This ensures all calls to the undlerying display driver come from the gui_task
@@ -2614,26 +2631,23 @@ void gui_repaint(gui_view_node_t* node)
     }
 
     // Post the node to the gui task
-    const gui_task_job_t node_repaint_info = { .node_to_repaint = node, .new_activity = NULL, .to_free = NULL };
-    while (xRingbufferSend(gui_input_queue, &node_repaint_info, sizeof(node_repaint_info), 500 / portTICK_PERIOD_MS)
-        != pdTRUE) {
-        // wait for a spot in the ringbuffer
-        JADE_LOGW("Failed to send node repaint info using gui ringbuffer");
-    }
+    const gui_task_job_t node_repaint_info = { .node_to_repaint = node };
+    gui_post(&node_repaint_info, "repaint");
 }
 
-// Call to initiate a change of current activity - optionally freeing other managed activities.
-// Can also pass a 'retain' activity which is not made current, but is retained and not freed.
-void gui_set_current_activity_ex(gui_activity_t* new_current, const bool free_managed_activities)
+// Call to initiate a change of current activity - optionally freeing other managed activities
+// (either all of them, if free_managed_activities is true, or only to_destroy if given).
+void gui_set_current_activity_impl(
+    gui_activity_t* new_current, gui_activity_t* to_destroy, const bool free_managed_activities, SemaphoreHandle_t done)
 {
     JADE_ASSERT(new_current);
+    JADE_ASSERT(!to_destroy || !free_managed_activities); // Either one, all or none
 
-    // We will post the gui task the new activity, and the list of activities it can free
-    gui_task_job_t switch_info = { .node_to_repaint = NULL, .new_activity = new_current, .to_free = NULL };
+    // job info initially includes just the new activity
+    gui_task_job_t switch_info = { .new_activity = new_current };
 
-    // If freeing others, partition existing activities into those to keep (new current and the
-    //  passed 'retain' activity) and those to free (all others).
-    if (free_managed_activities) {
+    if (to_destroy || free_managed_activities) {
+        // Freeing other activity/activities: partition into keep and free lists
         JADE_SEMAPHORE_TAKE(gui_mutex);
         activity_holder_t* holder = existing_activities;
         existing_activities = NULL;
@@ -2641,7 +2655,7 @@ void gui_set_current_activity_ex(gui_activity_t* new_current, const bool free_ma
         while (holder) {
             activity_holder_t* const next = holder->next;
 
-            if (&holder->activity == new_current) {
+            if (&holder->activity == new_current || (to_destroy && &holder->activity != to_destroy)) {
                 // Retain this activity
                 holder->next = existing_activities;
                 existing_activities = holder;
@@ -2654,26 +2668,42 @@ void gui_set_current_activity_ex(gui_activity_t* new_current, const bool free_ma
         }
 
         // Sanity check
-        // 'existing_activities' should be the new current activity only, or be completely empty
-        // (if current activity is an "unmanaged" activity)
-        JADE_ASSERT(
-            !existing_activities || ((&existing_activities->activity == new_current) && !existing_activities->next));
+        if (!to_destroy && existing_activities) {
+            // existing_activities should be the new current activity only
+            JADE_ASSERT(&existing_activities->activity == new_current && !existing_activities->next);
+        }
 
         JADE_SEMAPHORE_GIVE(gui_mutex);
     }
 
     // Post the new activity and the list to free to the gui task
-    while (xRingbufferSend(gui_input_queue, &switch_info, sizeof(switch_info), 500 / portTICK_PERIOD_MS) != pdTRUE) {
-        // wait for a spot in the ringbuffer
-        JADE_LOGW("Failed to send new activity using gui ringbuffer");
-    }
+    switch_info.done = done;
+    gui_post(&switch_info, "new activity");
+}
+
+void gui_set_current_activity_ex(gui_activity_t* new_current, const bool free_managed_activities)
+{
+    gui_set_current_activity_impl(new_current, NULL, free_managed_activities, NULL);
 }
 
 // Initiate change of 'current' activity
 void gui_set_current_activity(gui_activity_t* new_current)
 {
     // Set a new activity without freeing any other activities
-    gui_set_current_activity_ex(new_current, false);
+    gui_set_current_activity_impl(new_current, NULL, false, NULL);
+}
+
+void gui_destroy_current_activity(gui_activity_t* current_act, gui_activity_t* prev_act)
+{
+    // Create a semaphore to be signaled when the gui task finishes
+    SemaphoreHandle_t done = xSemaphoreCreateBinary();
+    JADE_ASSERT(done);
+
+    gui_set_current_activity_impl(prev_act, current_act, false, done);
+
+    // Wait for the gui task to finish
+    xSemaphoreTake(done, portMAX_DELAY);
+    vSemaphoreDelete(done);
 }
 
 // Create a new event_data structure, and attach to the activity

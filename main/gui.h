@@ -464,6 +464,10 @@ void gui_repaint(gui_view_node_t* node);
 void gui_set_current_activity_ex(gui_activity_t* new_current, bool free_managed_activities);
 void gui_set_current_activity(gui_activity_t* new_current);
 
+// Destroy an activity we are finished displaying and switch to prev_act.
+// Waits for the activity to be destroyed, to ensure that all memory it used is freed.
+void gui_destroy_current_activity(gui_activity_t* current_act, gui_activity_t* prev_act);
+
 wait_event_data_t* gui_activity_make_wait_event_data(gui_activity_t* activity);
 void gui_activity_register_event(
     gui_activity_t* activity, const char* event_base, uint32_t event_id, esp_event_handler_t handler, void* args);
