@@ -13,9 +13,7 @@
 // The exposed API allows passing and fetching messages using the same
 // binary format that would be passed to a real device by serial/bluetooth.
 //
-#define _GNU_SOURCE 1 // FIXME: needed for strcasestr in qrmode.c
-#include <string.h>
-#undef _GNU_SOURCE
+#define _GNU_SOURCE 1 // needed for pthread extra funcs e.g. pthread_setname_np
 #include "sdkconfig.h"
 
 #include "libjade.h"

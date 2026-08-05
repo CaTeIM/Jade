@@ -104,6 +104,9 @@ static inline void map_string(char* s, int (*fnmap)(int))
 // at the very end.  eg. for "abcdefhij\0" -> "abc\0def\0ghi\0j\0"
 #define SPLIT_TEXT_LEN(len, wordlen) (len + (len / wordlen) + 1)
 
+// Find 'word' in the first 'len' chars of 'str', case-insensitive
+char* strncasestr(const char* str, const char* word, size_t len);
+
 // Helper to copy text from one buffer to another, where the destination has terminators every
 // 'wordlen' chars, eg: "abcdefghi\0" -> "abc\0def\0ghi\0j\0"
 // output 'num_words' is number of 'words' written - eg. 4

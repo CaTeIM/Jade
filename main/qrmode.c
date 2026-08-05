@@ -1033,8 +1033,8 @@ static bool handle_qr_bytes(const uint8_t* bytes, const size_t bytes_len)
     }
 
     // Try to handle as multisig file
-    if (strcasestr(strbytes, "Name") && strcasestr(strbytes, "Format") && strcasestr(strbytes, "Policy")
-        && strcasestr(strbytes, "Derivation")) {
+    if (strncasestr(strbytes, "Name", bytes_len) && strncasestr(strbytes, "Format", bytes_len)
+        && strncasestr(strbytes, "Policy", bytes_len) && strncasestr(strbytes, "Derivation", bytes_len)) {
         // Looks like a multisig registration file
         const char* errmsg = NULL;
         const int errcode = register_multisig_file(strbytes, bytes_len, &errmsg);
