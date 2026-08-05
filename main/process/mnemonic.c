@@ -81,6 +81,7 @@ static bool mnemonic_export_qr(const char* mnemonic, bool* export_qr_verified)
     // Only 12 or 24 word mnemonics are supported (ie. 128 & 256 bit entropy)
     size_t entropy_len = 0;
     uint8_t entropy[BIP32_ENTROPY_LEN_256]; // Sufficient for 12 and 24 words
+    SENSITIVE_PUSH(entropy, sizeof(entropy));
     JADE_WALLY_VERIFY(bip39_mnemonic_to_bytes(NULL, mnemonic, entropy, sizeof(entropy), &entropy_len));
     JADE_ASSERT(entropy_len == BIP32_ENTROPY_LEN_128 || entropy_len == BIP32_ENTROPY_LEN_256);
 
@@ -89,6 +90,7 @@ static bool mnemonic_export_qr(const char* mnemonic, bool* export_qr_verified)
     const uint8_t qrcode_version = entropy_len == BIP32_ENTROPY_LEN_128 ? 1 : 2;
     uint8_t qrbuffer[96]; // underlying qrcode data/work area - opaque
     JADE_ASSERT(sizeof(qrbuffer) > qrcode_getBufferSize(qrcode_version));
+    SENSITIVE_PUSH(qrbuffer, sizeof(qrbuffer));
     const int qret = qrcode_initBytes(&qrcode, qrbuffer, qrcode_version, ECC_LOW, entropy, entropy_len);
     JADE_ASSERT(qret == 0);
 
@@ -200,16 +202,20 @@ static bool mnemonic_export_qr(const char* mnemonic, bool* export_qr_verified)
         }
 
         // Verify QR by scanning it back
-        qr_data_t qr_data = { .len = 0 };
+        qr_data_t* qr_data = JADE_CALLOC(1, sizeof(qr_data_t));
         const bool scan_success
-            = jade_camera_scan_qr(&qr_data, "Scan QR to verify", QR_GUIDE_SHOW, "blkstrm.com/seedqr");
-        if (scan_success && qr_data.len == entropy_len && !memcmp(qr_data.data, entropy, entropy_len)) {
+            = jade_camera_scan_qr(qr_data, "Scan QR to verify", QR_GUIDE_SHOW, "blkstrm.com/seedqr");
+        const bool qr_found = scan_success && qr_data->len != 0;
+        const bool is_match = qr_found && qr_data->len == entropy_len && !memcmp(qr_data->data, entropy, entropy_len);
+        wally_bzero(qr_data, sizeof(qr_data_t));
+        free(qr_data);
+        if (is_match) {
             // QR Code scanned, and it matched expected entropy
             await_message("QR Code Verified");
             *export_qr_verified = true;
             break; // done
         } else {
-            const char* question[] = { qr_data.len ? "QR code does not match" : "No QR code captured", "Retry?" };
+            const char* question[] = { qr_found ? "QR code does not match" : "No QR code captured", "Retry?" };
             if (await_skipyes_activity(NULL, question, 2, true, NULL)) {
                 // User agreed to retry, so go back to displaying qr fragments
                 continue;
@@ -221,12 +227,14 @@ static bool mnemonic_export_qr(const char* mnemonic, bool* export_qr_verified)
     }
 
 cleanup:
+    SENSITIVE_POP(qrbuffer);
+    SENSITIVE_POP(entropy);
     // Free the icons
     for (int i = 0; i < num_icons; ++i) {
-        free(icons[i].data);
+        qrcode_freeIconData(&icons[i]);
     }
     free(icons);
-    qrcode_freeIcon(&qr_overview);
+    qrcode_freeIconData(&qr_overview);
 
     // Return 'true' if done, or 'false' if 'back' was pressed
     return retval;
