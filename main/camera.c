@@ -210,6 +210,9 @@ typedef struct {
 
     // Context info passed to that function
     void* ctx;
+
+    // Output: the camera activity created (if show_ui)
+    gui_activity_t* camera_act;
 } camera_task_config_t;
 
 // Signal to the caller that we are done, and await our death
@@ -405,6 +408,7 @@ static void jade_camera_task(void* data)
         // Create camera screen
         act = make_camera_activity(&image_node, &label_node, camera_config->show_click_button,
             camera_config->qr_guide_type, camera_config->progress_bar, camera_config->help_url);
+        camera_config->camera_act = act;
         gui_set_current_activity(act);
     }
 
@@ -526,7 +530,7 @@ static void jade_camera_task(void* data)
 
 void jade_camera_process_images(camera_process_fn_t fn, void* ctx, const bool show_ui, const char* text_label,
     const bool show_click_button, const qr_guide_type_t qr_guide_type, const char* help_url,
-    progress_bar_t* progress_bar)
+    progress_bar_t* progress_bar, gui_activity_t** act_out)
 {
     JADE_ASSERT(fn);
     // ctx is optional
@@ -538,6 +542,7 @@ void jade_camera_process_images(camera_process_fn_t fn, void* ctx, const bool sh
     // show_qr_frame_guide is optional - if set guides for ideal QR placement are shown
     // help_url is optional - if preset a '?' (and help screen) are shown
     // progress_bar is optional, and is for providing feedback for multi-frame scanning
+    // act_out is optional - if provided receives the camera activity created (when show_ui is true)
     // NOTE: not valid to have a label, button[label], help_url, qr frame or progress bar if no ui shown
     // NOTE: atm show_click_btn and help_url are mutually exclusive
     if (!show_ui) {
@@ -556,7 +561,8 @@ void jade_camera_process_images(camera_process_fn_t fn, void* ctx, const bool sh
         .qr_guide_type = qr_guide_type,
         .progress_bar = progress_bar,
         .fn_process = fn,
-        .ctx = ctx };
+        .ctx = ctx,
+        .camera_act = NULL };
 
     // When running the camera task we set the minimum idle timeout to keep the hw from sleeping too quickly
     // (If the user has set a longer timeout value that is respected)
@@ -583,15 +589,23 @@ void jade_camera_process_images(camera_process_fn_t fn, void* ctx, const bool sh
 
     // Remove the minimum idle timeout
     idletimer_set_min_timeout_secs(0);
+
+    // Return the camera activity pointer if caller requested it
+    if (act_out) {
+        *act_out = camera_config.camera_act;
+    }
 }
 
 #else // CONFIG_HAS_CAMERA
 
 void jade_camera_process_images(camera_process_fn_t fn, void* ctx, const bool show_ui, const char* text_label,
     const bool show_click_button, const qr_guide_type_t qr_guide_type, const char* help_url,
-    progress_bar_t* progress_bar)
+    progress_bar_t* progress_bar, gui_activity_t** act_out)
 {
     JADE_LOGW("No camera supported for this device");
+    if (act_out) {
+        *act_out = NULL;
+    }
     await_error("No camera detected");
 }
 

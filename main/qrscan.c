@@ -164,6 +164,9 @@ bool jade_camera_scan_qr(
     // help_url is optional
 
 #ifdef CONFIG_HAS_CAMERA
+    // Remember the activity that was showing before the camera
+    gui_activity_t* const prev_act = gui_current_activity();
+
     // Create the quirc structs (reused for each frame) - destroyed below
     JADE_ASSERT(!qr_data->q);
     qr_data->q = quirc_new();
@@ -184,14 +187,21 @@ bool jade_camera_scan_qr(
     // Run the camera task trying to interpet frames as qr-codes
     const bool show_camera_ui = true;
     const bool show_click_button = false;
+    gui_activity_t* camera_act = NULL;
     jade_camera_process_images(qr_recognize, qr_data, show_camera_ui, text_label, show_click_button, qr_guide_type,
-        help_url, qr_data->progress_bar);
+        help_url, qr_data->progress_bar, &camera_act);
 
     // Destroy the quirc structs created above
     quirc_destroy(qr_data->q);
     qr_data->q = NULL;
     free(qr_data->ds);
     qr_data->ds = NULL;
+
+    // Destroy the camera activity that was created by the camera task
+    // and restore the previous activity.
+    if (camera_act) {
+        gui_destroy_current_activity(camera_act, prev_act);
+    }
 
     // Any scanned qr code will be in the qr_data passed
     return qr_data->len > 0;
