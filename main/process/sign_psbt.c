@@ -165,7 +165,7 @@ static bool is_green_multisig_signers(const network_t network_id, const key_iter
 
     // If the backend path matches then this is a Green multisig
     return ga_path_len == expected_ga_path_len
-        && sodium_memcmp(expected_ga_path, ga_path, ga_path_len * sizeof(ga_path[0]));
+        && !sodium_memcmp(expected_ga_path, ga_path, ga_path_len * sizeof(ga_path[0]));
 }
 
 // Generate a green-multisig script, and compare it to the target script provided.
