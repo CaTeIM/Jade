@@ -435,11 +435,14 @@ gui_activity_t* display_processing_message_activity()
 }
 
 // Show passed dialog and handle events until a 'yes' or 'no', which is translated into a boolean return
+// Destroys the passed activity before returning.
 // NOTE: only expect BTN_YES, BTN_NO and BTN_HELP events.
 static bool await_yesno_activity_loop(gui_activity_t* const act, const char* help_url)
 {
     JADE_ASSERT(act);
     // help_url is optional (but should be present if a BTN_HELP btn is present)
+
+    gui_activity_t* const prev_act = gui_current_activity(); // Save current activity
 
     while (true) {
         gui_set_current_activity(act);
@@ -465,6 +468,7 @@ static bool await_yesno_activity_loop(gui_activity_t* const act, const char* hel
             break;
         }
     }
+    gui_destroy_current_activity(act, prev_act); // restore previous activity
 }
 
 // Run activity that displays a message and awaits an 'ack' button click

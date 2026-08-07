@@ -1547,6 +1547,8 @@ void await_qr_help_activity(const char* url)
     char url_with_crlf[MAX_QR_V4_DATA_LEN + 2]; // new \n and trailing \0
     add_cr_after_last_slash(url, url_with_crlf, sizeof(url_with_crlf));
 
+    gui_activity_t* const prev_act = gui_current_activity(); // Save current activity
+
     // Show, and await button click - note gui takes ownership of icon
     gui_activity_t* const act = make_show_qr_help_activity(url_with_crlf, qr_icon);
     gui_set_current_activity(act);
@@ -1562,6 +1564,7 @@ void await_qr_help_activity(const char* url)
             break;
         }
     }
+    gui_destroy_current_activity(act, prev_act); // restore previous activity
 }
 
 // Display screen with help url and qr code
