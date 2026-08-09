@@ -1140,7 +1140,7 @@ static bool parse_psbt_bytes(void* ctx)
     JADE_ASSERT(ctx);
     psbt_parse_data_t* data = (psbt_parse_data_t*)ctx;
     data->psbt_out = NULL;
-    const uint32_t flags = WALLY_PSBT_PARSE_FLAG_STRICT;
+    const uint32_t flags = WALLY_PSBT_PARSE_FLAG_STRICT | WALLY_PSBT_PARSE_FLAG_COMPLETE;
     const int wret = wally_psbt_from_bytes(data->bytes, data->bytes_len, flags, &data->psbt_out);
     return wret == WALLY_OK && data->psbt_out != NULL;
 }
