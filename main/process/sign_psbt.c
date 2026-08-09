@@ -527,7 +527,8 @@ static bool psbt_update_outputs(const network_t network_id, struct wally_psbt* p
                 outinfo->flags |= OUTPUT_FLAG_HAS_BLINDING_KEY;
             }
 
-            if (wally_psbt_get_output_amount(psbt, index, &outinfo->value) == WALLY_OK
+            if (wally_psbt_has_output_amount(psbt, index, &written) == WALLY_OK && written
+                && wally_psbt_get_output_amount(psbt, index, &outinfo->value) == WALLY_OK
                 && wally_psbt_get_output_asset(psbt, index, outinfo->asset_id, sizeof(outinfo->asset_id), &written)
                     == WALLY_OK
                 && written) {
