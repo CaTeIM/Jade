@@ -136,32 +136,6 @@ except ImportError as e:
     logger.info('Default _http_requests() function will not be available')
 
 
-def generate_dump():
-    while True:
-        try:
-            with socket.create_connection(('localhost', 4444)) as s:
-                output = b""
-                while b'Open On-Chip Debugger' not in output:
-                    data = s.recv(1024)
-                    if not data:
-                        continue
-                    output += data
-
-                s.sendall(b'esp gcov dump\n')
-
-                output = b''
-                while b'Targets disconnected.' not in output:
-                    data = s.recv(1024)
-                    if not data:
-                        continue
-                    output += data
-                s.sendall(b'resume\n')
-                time.sleep(1)
-            return
-        except ConnectionRefusedError:
-            pass
-
-
 class JadeAPI:
     """
     High-Level Jade Client API
