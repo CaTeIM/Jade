@@ -1764,27 +1764,6 @@ void gui_update_picture(gui_view_node_t* node, const Picture* picture, const boo
     }
 }
 
-static inline color_t DEBUG_COLOR(const uint8_t depth)
-{
-    switch (depth) {
-    case 0:
-        return TFT_RED;
-    case 1:
-        return TFT_ORANGE;
-    case 2:
-        return TFT_YELLOW;
-    case 3:
-        return TFT_GREENYELLOW;
-    case 4:
-        return TFT_GREEN;
-    case 5:
-        return TFT_CYAN;
-
-    default:
-        return TFT_PINK;
-    }
-}
-
 // get the "step" based on the width of the parent element, our value and the type of split
 static inline uint16_t get_step(enum gui_split_type kind, uint16_t total, uint16_t value)
 {
@@ -1802,7 +1781,7 @@ static inline uint16_t get_step(enum gui_split_type kind, uint16_t total, uint16
 }
 
 // Fully render a node, meaning that it also re-calculates the constraints, push elements to the selectables list, etc
-static void render_node(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_node(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
 
@@ -1824,13 +1803,11 @@ static void render_node(gui_view_node_t* node, const dispWin_t* const cs, const 
     node->render_data.original_constraints = *cs;
     calc_render_data(node);
 
-    node->render_data.depth = depth;
-
     // actually paint the node on-screen
     repaint_node(node);
 }
 
-static void render_button(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_button(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == BUTTON);
@@ -1847,11 +1824,11 @@ static void render_button(gui_view_node_t* node, const dispWin_t* const cs, cons
     // Draw any children directly over the current node
     gui_view_node_t* ptr = node->child;
     if (ptr) {
-        render_node(ptr, cs, depth + 1);
+        render_node(ptr, cs);
     }
 }
 
-static void render_vsplit(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_vsplit(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == VSPLIT);
@@ -1879,7 +1856,7 @@ static void render_vsplit(gui_view_node_t* node, const dispWin_t* const cs, cons
             .y2 = min_u16(y + step, max_y),
         };
 
-        render_node(ptr, &child_cs, depth + 1);
+        render_node(ptr, &child_cs);
 
         ++count;
         y = child_cs.y2;
@@ -1887,7 +1864,7 @@ static void render_vsplit(gui_view_node_t* node, const dispWin_t* const cs, cons
     }
 }
 
-static void render_hsplit(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_hsplit(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == HSPLIT);
@@ -1909,7 +1886,7 @@ static void render_hsplit(gui_view_node_t* node, const dispWin_t* const cs, cons
 
         const dispWin_t child_cs = { .x1 = x, .x2 = min_u16(x + step, max_x), .y1 = cs->y1, .y2 = cs->y2 };
 
-        render_node(ptr, &child_cs, depth + 1);
+        render_node(ptr, &child_cs);
 
         ++count;
         x = child_cs.x2;
@@ -1917,7 +1894,7 @@ static void render_hsplit(gui_view_node_t* node, const dispWin_t* const cs, cons
     }
 }
 
-static void render_fill(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_fill(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == FILL);
@@ -1938,7 +1915,7 @@ static void render_fill(gui_view_node_t* node, const dispWin_t* const cs, const 
     // Draw any children directly over the current node
     gui_view_node_t* ptr = node->child;
     if (ptr) {
-        render_node(ptr, cs, depth + 1);
+        render_node(ptr, cs);
     }
 }
 
@@ -2042,7 +2019,7 @@ static void render_text(gui_view_node_t* node, const dispWin_t* const cs)
 }
 
 // render an icon to screen
-static void render_icon(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_icon(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == ICON);
@@ -2067,12 +2044,12 @@ static void render_icon(gui_view_node_t* node, const dispWin_t* const cs, const 
     // Draw any children directly over the current node
     gui_view_node_t* ptr = node->child;
     if (ptr) {
-        render_node(ptr, cs, depth + 1);
+        render_node(ptr, cs);
     }
 }
 
 // render a picture to screen
-static void render_picture(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_picture(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == PICTURE);
@@ -2085,12 +2062,12 @@ static void render_picture(gui_view_node_t* node, const dispWin_t* const cs, con
     // Draw any children directly over the current node
     gui_view_node_t* ptr = node->child;
     if (ptr) {
-        render_node(ptr, cs, depth + 1);
+        render_node(ptr, cs);
     }
 }
 
 // render a qrguide to screen
-static void render_qrguide(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
+static void render_qrguide(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == QRGUIDE);
@@ -2140,7 +2117,7 @@ static void render_qrguide(gui_view_node_t* node, const dispWin_t* const cs, con
     // Draw any children directly over the current node
     gui_view_node_t* ptr = node->child;
     if (ptr) {
-        render_node(ptr, cs, depth + 1);
+        render_node(ptr, cs);
     }
 }
 
@@ -2203,28 +2180,28 @@ static void repaint_node(gui_view_node_t* node)
 
     switch (node->kind) {
     case HSPLIT:
-        render_hsplit(node, &node->render_data.padded_constraints, node->render_data.depth);
+        render_hsplit(node, &node->render_data.padded_constraints);
         break;
     case VSPLIT:
-        render_vsplit(node, &node->render_data.padded_constraints, node->render_data.depth);
+        render_vsplit(node, &node->render_data.padded_constraints);
         break;
     case TEXT:
-        render_text(node, &node->render_data.padded_constraints); // text does not have child nodes
+        render_text(node, &node->render_data.padded_constraints);
         break;
     case FILL:
-        render_fill(node, &node->render_data.padded_constraints, node->render_data.depth);
+        render_fill(node, &node->render_data.padded_constraints);
         break;
     case BUTTON:
-        render_button(node, &node->render_data.padded_constraints, node->render_data.depth);
+        render_button(node, &node->render_data.padded_constraints);
         break;
     case ICON:
-        render_icon(node, &node->render_data.padded_constraints, node->render_data.depth);
+        render_icon(node, &node->render_data.padded_constraints);
         break;
     case PICTURE:
-        render_picture(node, &node->render_data.padded_constraints, node->render_data.depth);
+        render_picture(node, &node->render_data.padded_constraints);
         break;
     case QRGUIDE:
-        render_qrguide(node, &node->render_data.padded_constraints, node->render_data.depth);
+        render_qrguide(node, &node->render_data.padded_constraints);
         break;
     }
 }
@@ -2235,7 +2212,7 @@ static void render_activity(gui_activity_t* activity)
     JADE_ASSERT(activity->root_node);
 
     const bool first_time = activity->root_node->render_data.is_first_time;
-    render_node(activity->root_node, &activity->win, 0);
+    render_node(activity->root_node, &activity->win);
 
     if (first_time && activity->selectables) {
         // If the activity has an 'initial_selection' and it appears active, select it now
@@ -2335,7 +2312,7 @@ static bool update_status_bar(const bool force_redraw)
     if (status_bar.updated || force_redraw) {
         dispWin_t status_bar_cs = GUI_DISPLAY_WINDOW;
         status_bar_cs.y2 = status_bar_cs.y1 + GUI_STATUS_BAR_HEIGHT;
-        render_node(status_bar.root, &status_bar_cs, 0);
+        render_node(status_bar.root, &status_bar_cs);
         status_bar.updated = false;
         updated = true;
     }

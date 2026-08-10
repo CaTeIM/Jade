@@ -184,9 +184,6 @@ struct view_node_render_data {
 
     // is this the first rendering of the node?
     bool is_first_time;
-
-    // depth of the node in the tree of this activity
-    uint8_t depth;
 };
 
 // Data for a {v,h}split
