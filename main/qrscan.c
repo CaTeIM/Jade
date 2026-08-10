@@ -128,8 +128,6 @@ bool scan_qr(const size_t width, const size_t height, const uint8_t* data, const
     // Create the quirc structs
     qr_data->q = quirc_new();
     JADE_ASSERT(qr_data->q);
-    qr_data->ds = JADE_MALLOC_PREFER_DRAM(sizeof(struct datastream));
-    JADE_ASSERT(qr_data->ds);
 
     // Also correctly size the internal image buffer since we know the size of the camera images.
     const uint16_t scan_width = min_u16(CAMERA_IMAGE_WIDTH, CAMERA_IMAGE_HEIGHT) - SCAN_MARGIN;
@@ -140,13 +138,18 @@ bool scan_qr(const size_t width, const size_t height, const uint8_t* data, const
     JADE_LOGE("SCAN WIDTH: %u", scan_width);
     JADE_LOGE("SCAN HEIGHT: %u", scan_width);
 
+    qr_data->ds = JADE_MALLOC_PREFER_DRAM(sizeof(struct datastream));
+    qr_data->ds->data = JADE_MALLOC_PREFER_DRAM(QUIRC_MAX_PAYLOAD * sizeof(uint8_t));
+
     const bool ret = qr_recognize(width, height, data, len, qr_data);
 
     // Destroy the quirc structs created above
-    quirc_destroy(qr_data->q);
-    qr_data->q = NULL;
+    free(qr_data->ds->data);
+    qr_data->ds->data = NULL;
     free(qr_data->ds);
     qr_data->ds = NULL;
+    quirc_destroy(qr_data->q);
+    qr_data->q = NULL;
 
     // Any scanned qr code will be in the qr_data passed
     return ret && qr_data->len > 0;
@@ -171,8 +174,6 @@ bool jade_camera_scan_qr(
     JADE_ASSERT(!qr_data->q);
     qr_data->q = quirc_new();
     JADE_ASSERT(qr_data->q);
-    qr_data->ds = JADE_MALLOC_PREFER_DRAM(sizeof(struct datastream));
-    JADE_ASSERT(qr_data->ds);
 
     // Also correctly size the internal image buffer since we know the size of the camera images.
     // This image buffer is then reused for every camera image frame processed.
@@ -184,6 +185,9 @@ bool jade_camera_scan_qr(
     JADE_LOGE("SCAN WIDTH: %u", scan_width);
     JADE_LOGE("SCAN HEIGHT: %u", scan_width);
 
+    qr_data->ds = JADE_MALLOC_PREFER_DRAM(sizeof(struct datastream));
+    qr_data->ds->data = JADE_MALLOC_PREFER_DRAM(QUIRC_MAX_PAYLOAD * sizeof(uint8_t));
+
     // Run the camera task trying to interpet frames as qr-codes
     const bool show_camera_ui = true;
     const bool show_click_button = false;
@@ -191,17 +195,19 @@ bool jade_camera_scan_qr(
     jade_camera_process_images(qr_recognize, qr_data, show_camera_ui, text_label, show_click_button, qr_guide_type,
         help_url, qr_data->progress_bar, &camera_act);
 
-    // Destroy the quirc structs created above
-    quirc_destroy(qr_data->q);
-    qr_data->q = NULL;
-    free(qr_data->ds);
-    qr_data->ds = NULL;
-
     // Destroy the camera activity that was created by the camera task
     // and restore the previous activity.
     if (camera_act) {
         gui_destroy_current_activity(camera_act, prev_act);
     }
+
+    // Destroy the quirc structs created above
+    free(qr_data->ds->data);
+    qr_data->ds->data = NULL;
+    free(qr_data->ds);
+    qr_data->ds = NULL;
+    quirc_destroy(qr_data->q);
+    qr_data->q = NULL;
 
     // Any scanned qr code will be in the qr_data passed
     return qr_data->len > 0;
