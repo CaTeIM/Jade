@@ -172,7 +172,7 @@ typedef struct activity_event {
 } activity_event_t;
 
 // Values calculated by the render that can be useful later
-struct __attribute__((__packed__)) view_node_render_data {
+struct view_node_render_data {
     dispWin_t original_constraints;
 
     // area of the node *after* margins, padding and borders have been applied
@@ -317,7 +317,7 @@ typedef struct wait_data {
 } wait_data_t;
 
 // Struct that contains an "activity", basically a tree of nodes that can be rendered on screen
-struct __attribute__((__packed__)) gui_activity_t {
+struct gui_activity_t {
     // "window" used by the tft library to paint on screen
     dispWin_t win;
     // root view_node
@@ -337,10 +337,12 @@ struct __attribute__((__packed__)) gui_activity_t {
     // linked list of wait_event_data structures associated with this activity
     wait_data_t* wait_data_items;
 
-    // add the status bar on top of this activity (top 24px)
-    bool status_bar;
     // title shown in the status bar (if enabled)
     char* title;
+
+    // add the status bar on top of this activity (top 24px)
+    bool status_bar;
+
     // should that cursor "wrap around" when you reach one end?
     bool selectables_wrap;
 };
@@ -349,15 +351,12 @@ struct __attribute__((__packed__)) gui_activity_t {
 typedef void (*free_callback_t)(void*);
 
 // Generic struct representing a node in the view tree
-struct __attribute__((__packed__)) gui_view_node_t {
+struct gui_view_node_t {
     // stuff set by the renderer
     struct view_node_render_data render_data;
 
     // NULL for the root node
     gui_view_node_t* parent;
-
-    // type of node
-    enum view_node_kind kind;
 
     // activity that contains this node
     gui_activity_t* activity;
@@ -389,6 +388,9 @@ struct __attribute__((__packed__)) gui_view_node_t {
 
     // next sibling in the linked list
     gui_view_node_t* sibling;
+
+    // type of node
+    enum view_node_kind kind;
 
     // is this node currently selected (highlighted)?
     bool is_selected;
