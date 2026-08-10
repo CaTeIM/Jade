@@ -1807,10 +1807,12 @@ static void render_node(gui_view_node_t* node, const dispWin_t* const cs)
     repaint_node(node);
 }
 
-static void render_button(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_button(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == BUTTON);
+
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
 
     // If the un-selected colour is the same as the selected colour, it implies
     // the button is transparent when not selected, so we can skip filling the content.
@@ -1822,16 +1824,17 @@ static void render_button(gui_view_node_t* node, const dispWin_t* const cs)
     }
 
     // Draw any children directly over the current node
-    gui_view_node_t* ptr = node->child;
-    if (ptr) {
-        render_node(ptr, cs);
+    if (node->child) {
+        render_node(node->child, cs);
     }
 }
 
-static void render_vsplit(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_vsplit(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == VSPLIT);
+
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
 
     uint16_t count = 0;
     uint16_t y = cs->y1;
@@ -1864,10 +1867,12 @@ static void render_vsplit(gui_view_node_t* node, const dispWin_t* const cs)
     }
 }
 
-static void render_hsplit(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_hsplit(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == HSPLIT);
+
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
 
     uint16_t count = 0;
     uint16_t x = cs->x1;
@@ -1894,7 +1899,7 @@ static void render_hsplit(gui_view_node_t* node, const dispWin_t* const cs)
     }
 }
 
-static void render_fill(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_fill(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == FILL);
@@ -1910,12 +1915,12 @@ static void render_fill(gui_view_node_t* node, const dispWin_t* const cs)
         JADE_ASSERT(false); // Unknown fill type
     }
 
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
     display_fill_rect(cs->x1, cs->y1, cs->x2 - cs->x1, cs->y2 - cs->y1, color);
 
     // Draw any children directly over the current node
-    gui_view_node_t* ptr = node->child;
-    if (ptr) {
-        render_node(ptr, cs);
+    if (node->child) {
+        render_node(node->child, cs);
     }
 }
 
@@ -1950,10 +1955,12 @@ static inline int resolve_valign(int y, enum gui_vertical_align valign)
 }
 
 // render a text node to screen in the window constrained by cs
-static void render_text(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_text(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == TEXT);
+
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
 
     display_set_font(node->text->font);
 
@@ -2019,10 +2026,12 @@ static void render_text(gui_view_node_t* node, const dispWin_t* const cs)
 }
 
 // render an icon to screen
-static void render_icon(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_icon(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == ICON);
+
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
 
     if (node->icon) {
         color_t color, bg_color;
@@ -2042,17 +2051,18 @@ static void render_icon(gui_view_node_t* node, const dispWin_t* const cs)
     }
 
     // Draw any children directly over the current node
-    gui_view_node_t* ptr = node->child;
-    if (ptr) {
-        render_node(ptr, cs);
+    if (node->child) {
+        render_node(node->child, cs);
     }
 }
 
 // render a picture to screen
-static void render_picture(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_picture(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == PICTURE);
+
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
 
     if (node->picture && node->picture->picture) {
         display_picture(node->picture->picture, resolve_halign(0, node->picture->halign),
@@ -2060,17 +2070,18 @@ static void render_picture(gui_view_node_t* node, const dispWin_t* const cs)
     }
 
     // Draw any children directly over the current node
-    gui_view_node_t* ptr = node->child;
-    if (ptr) {
-        render_node(ptr, cs);
+    if (node->child) {
+        render_node(node->child, cs);
     }
 }
 
 // render a qrguide to screen
-static void render_qrguide(gui_view_node_t* node, const dispWin_t* const cs)
+static void render_qrguide(gui_view_node_t* node)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == QRGUIDE);
+
+    const dispWin_t* const cs = &node->render_data.padded_constraints;
 
     // guide dimensions
     const uint16_t gwidth = 2;
@@ -2115,9 +2126,8 @@ static void render_qrguide(gui_view_node_t* node, const dispWin_t* const cs)
     display_fill_rect(right - gwidth / 2, bottom - glength - gnubbin, gwidth / 2, gnubbin, node->qrguide->color);
 
     // Draw any children directly over the current node
-    gui_view_node_t* ptr = node->child;
-    if (ptr) {
-        render_node(ptr, cs);
+    if (node->child) {
+        render_node(node->child, cs);
     }
 }
 
@@ -2180,28 +2190,28 @@ static void repaint_node(gui_view_node_t* node)
 
     switch (node->kind) {
     case HSPLIT:
-        render_hsplit(node, &node->render_data.padded_constraints);
+        render_hsplit(node);
         break;
     case VSPLIT:
-        render_vsplit(node, &node->render_data.padded_constraints);
+        render_vsplit(node);
         break;
     case TEXT:
-        render_text(node, &node->render_data.padded_constraints);
+        render_text(node);
         break;
     case FILL:
-        render_fill(node, &node->render_data.padded_constraints);
+        render_fill(node);
         break;
     case BUTTON:
-        render_button(node, &node->render_data.padded_constraints);
+        render_button(node);
         break;
     case ICON:
-        render_icon(node, &node->render_data.padded_constraints);
+        render_icon(node);
         break;
     case PICTURE:
-        render_picture(node, &node->render_data.padded_constraints);
+        render_picture(node);
         break;
     case QRGUIDE:
-        render_qrguide(node, &node->render_data.padded_constraints);
+        render_qrguide(node);
         break;
     }
 }
