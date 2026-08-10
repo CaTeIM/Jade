@@ -278,14 +278,14 @@ void display_init(TaskHandle_t* gui_h)
         .y2 = (CONFIG_DISPLAY_HEIGHT + (TOUCH_BUTTON_AREA - TOUCH_BUTTON_MARGIN)) + CONFIG_DISPLAY_OFFSET_Y };
 
     display_set_font(JADE_SYMBOLS_16x16_FONT);
-    display_print_in_area("H", CENTER, CENTER, disp_win_virtual_buttons, 0);
+    display_print_in_area("H", CENTER, CENTER, &disp_win_virtual_buttons, 0);
     disp_win_virtual_buttons.x1 = ((CONFIG_DISPLAY_WIDTH / 2) + CONFIG_DISPLAY_OFFSET_X) - (TOUCH_BUTTON_WIDTH / 2);
     disp_win_virtual_buttons.x2 = ((CONFIG_DISPLAY_WIDTH / 2) + CONFIG_DISPLAY_OFFSET_X) + (TOUCH_BUTTON_WIDTH / 2);
-    display_print_in_area("J", CENTER, CENTER, disp_win_virtual_buttons, 0);
+    display_print_in_area("J", CENTER, CENTER, &disp_win_virtual_buttons, 0);
     disp_win_virtual_buttons.x1
         = ((CONFIG_DISPLAY_WIDTH - TOUCH_BUTTON_MARGIN) + CONFIG_DISPLAY_OFFSET_X) - TOUCH_BUTTON_WIDTH;
     disp_win_virtual_buttons.x2 = (CONFIG_DISPLAY_WIDTH - TOUCH_BUTTON_MARGIN) + CONFIG_DISPLAY_OFFSET_X;
-    display_print_in_area("I", CENTER, CENTER, disp_win_virtual_buttons, 0);
+    display_print_in_area("I", CENTER, CENTER, &disp_win_virtual_buttons, 0);
     display_set_font(DEFAULT_FONT);
 
     vTaskDelay(50 / portTICK_PERIOD_MS);
@@ -473,7 +473,7 @@ static inline bool get_icon_pixel(uint16_t x, uint16_t y, uint16_t width, const 
     return (icon->data[elem] >> bit) & 1;
 }
 
-void display_icon(const Icon* imgbuf, int x, int y, color_t color, dispWin_t area, const color_t* bg_color)
+void display_icon(const Icon* imgbuf, int x, int y, color_t color, const dispWin_t* const cs, const color_t* bg_color)
 {
     JADE_ASSERT(imgbuf);
 
@@ -483,8 +483,8 @@ void display_icon(const Icon* imgbuf, int x, int y, color_t color, dispWin_t are
     const uint16_t width = imgbuf->width;
     const uint16_t height = imgbuf->height;
 
-    const uint16_t draw_width = min(width, area.x2 - area.x1);
-    const uint16_t draw_height = min(height, area.y2 - area.y1);
+    const uint16_t draw_width = min(width, cs->x2 - cs->x1);
+    const uint16_t draw_height = min(height, cs->y2 - cs->y1);
 
 #ifndef CONFIG_DISPLAY_FULL_FRAME_BUFFER
     uint16_t start_x = 0;
@@ -492,25 +492,25 @@ void display_icon(const Icon* imgbuf, int x, int y, color_t color, dispWin_t are
 #endif
 
     if (x == RIGHT) {
-        x = area.x2 - draw_width;
+        x = cs->x2 - draw_width;
     } else if (x == CENTER) {
-        x = ((area.x2 - area.x1 - draw_width) / 2) + area.x1;
+        x = ((cs->x2 - cs->x1 - draw_width) / 2) + cs->x1;
 #ifndef CONFIG_DISPLAY_FULL_FRAME_BUFFER
         start_x = (width - draw_width) / 2;
 #endif
     } else {
-        x = x + area.x1;
+        x = x + cs->x1;
     }
 
     if (y == BOTTOM) {
-        y = area.y2 - draw_height;
+        y = cs->y2 - draw_height;
     } else if (y == CENTER) {
-        y = ((area.y2 - area.y1 - draw_height) / 2) + area.y1;
+        y = ((cs->y2 - cs->y1 - draw_height) / 2) + cs->y1;
 #ifndef CONFIG_DISPLAY_FULL_FRAME_BUFFER
         start_y = (height - draw_height) / 2;
 #endif
     } else {
-        y = y + area.y1;
+        y = y + cs->y1;
     }
 
 #ifdef CONFIG_DISPLAY_FULL_FRAME_BUFFER
@@ -803,7 +803,7 @@ void display_set_font(const uint8_t font)
 #define LASTX 7000
 #define LASTY 8000
 
-void display_print_in_area(const char* st, int x, int y, dispWin_t areaWin, bool wrap)
+void display_print_in_area(const char* st, int x, int y, const dispWin_t* const cs, bool wrap)
 {
     if (!cfont.bitmap) {
         return;
@@ -814,13 +814,13 @@ void display_print_in_area(const char* st, int x, int y, dispWin_t areaWin, bool
     if ((x >= LASTX) && (x < LASTY)) {
         x = TFT_X + (x - LASTX);
     } else if (x > CENTER) {
-        x += areaWin.x1;
+        x += cs->x1;
     }
 
     if (y >= LASTY) {
         y = TFT_Y + (y - LASTY);
     } else if (y > CENTER) {
-        y += areaWin.y1;
+        y += cs->y1;
     }
 
     int stl = strlen(st);
@@ -828,24 +828,24 @@ void display_print_in_area(const char* st, int x, int y, dispWin_t areaWin, bool
     int fh = cfont.y_size;
 
     if (x == RIGHT) {
-        x = areaWin.x2 - tmpw;
+        x = cs->x2 - tmpw;
     } else if (x == CENTER) {
-        x = ((areaWin.x2 - areaWin.x1 - tmpw) / 2) + areaWin.x1;
+        x = ((cs->x2 - cs->x1 - tmpw) / 2) + cs->x1;
     }
 
     if (y == BOTTOM) {
-        y = areaWin.y2 - fh;
+        y = cs->y2 - fh;
     } else if (y == CENTER) {
-        y = ((areaWin.y2 - areaWin.y1 - fh) / 2) + areaWin.y1;
+        y = ((cs->y2 - cs->y1 - fh) / 2) + cs->y1;
     }
 
-    if (x < areaWin.x1) {
-        x = areaWin.x1;
+    if (x < cs->x1) {
+        x = cs->x1;
     }
-    if (y < areaWin.y1) {
-        y = areaWin.y1;
+    if (y < cs->y1) {
+        y = cs->y1;
     }
-    if ((x > areaWin.x2) || (y > areaWin.y2)) {
+    if ((x > cs->x2) || (y > cs->y2)) {
         return;
     }
 
@@ -857,7 +857,7 @@ void display_print_in_area(const char* st, int x, int y, dispWin_t areaWin, bool
     tmpw = cfont.x_size;
     int tmph = cfont.y_size;
 
-    if ((TFT_Y + tmph - 1) > areaWin.y2) {
+    if ((TFT_Y + tmph - 1) > cs->y2) {
         return;
     }
 
@@ -869,10 +869,10 @@ void display_print_in_area(const char* st, int x, int y, dispWin_t areaWin, bool
         if (ch == 0x0A) {
             if (cfont.bitmap == 1) {
                 TFT_Y += tmph;
-                if (TFT_Y > (areaWin.y2 - tmph)) {
+                if (TFT_Y > (cs->y2 - tmph)) {
                     break;
                 }
-                TFT_X = areaWin.x1;
+                TFT_X = cs->x1;
             }
         } else {
             if (!cfont.x_size) {
@@ -883,15 +883,15 @@ void display_print_in_area(const char* st, int x, int y, dispWin_t areaWin, bool
                 }
             }
 
-            if ((TFT_X + tmpw) > (areaWin.x2)) {
+            if ((TFT_X + tmpw) > (cs->x2)) {
                 if (!wrap) {
                     break;
                 }
                 TFT_Y += tmph;
-                if (TFT_Y > (areaWin.y2 - tmph)) {
+                if (TFT_Y > (cs->y2 - tmph)) {
                     break;
                 }
-                TFT_X = areaWin.x1;
+                TFT_X = cs->x1;
             }
 
             if (!cfont.x_size) {
@@ -925,7 +925,7 @@ static const uint16_t gray_565[64] = { GS(0), GS(4), GS(8), GS(12), GS(16), GS(2
 #undef GS_CPU
 #undef GS
 
-void display_picture(const Picture* imgbuf, int x, int y, dispWin_t area)
+void display_picture(const Picture* imgbuf, int x, int y, const dispWin_t* cs)
 {
     JADE_ASSERT(imgbuf);
 
@@ -937,25 +937,25 @@ void display_picture(const Picture* imgbuf, int x, int y, dispWin_t area)
 
     switch (x) {
     case CENTER:
-        calculatedx = ((area.x2 - area.x1 - imgbuf->width) / 2) + area.x1;
+        calculatedx = ((cs->x2 - cs->x1 - imgbuf->width) / 2) + cs->x1;
         break;
     case RIGHT:
-        calculatedx = area.x2 - imgbuf->width;
+        calculatedx = cs->x2 - imgbuf->width;
         break;
     default:
-        calculatedx = x + area.x1;
+        calculatedx = x + cs->x1;
         break;
     }
 
     switch (y) {
     case CENTER:
-        calculatedy = ((area.y2 - area.y1 - imgbuf->height) / 2) + area.y1;
+        calculatedy = ((cs->y2 - cs->y1 - imgbuf->height) / 2) + cs->y1;
         break;
     case BOTTOM:
-        calculatedy = area.y2 - imgbuf->height;
+        calculatedy = cs->y2 - imgbuf->height;
         break;
     default:
-        calculatedy = y + area.y1;
+        calculatedy = y + cs->y1;
         break;
     }
 

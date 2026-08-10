@@ -1802,14 +1802,14 @@ static inline uint16_t get_step(enum gui_split_type kind, uint16_t total, uint16
 }
 
 // Fully render a node, meaning that it also re-calculates the constraints, push elements to the selectables list, etc
-static void render_node(gui_view_node_t* node, const dispWin_t constraints, const uint8_t depth)
+static void render_node(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
 
     if (node->render_data.is_first_time) {
         // now that we know the coordinates of this node we can push it to the list of selectable elements
         if (is_kind_selectable(node->kind)) {
-            push_selectable(node->activity, node, constraints.x1, constraints.y1);
+            push_selectable(node->activity, node, cs->x1, cs->y1);
         }
 
         // resolve the value for text objects
@@ -1821,7 +1821,7 @@ static void render_node(gui_view_node_t* node, const dispWin_t constraints, cons
     }
 
     // remember the original constrains, we will calculate the others based on those
-    node->render_data.original_constraints = constraints;
+    node->render_data.original_constraints = *cs;
     calc_render_data(node);
 
     node->render_data.depth = depth;
@@ -1830,7 +1830,7 @@ static void render_node(gui_view_node_t* node, const dispWin_t constraints, cons
     repaint_node(node);
 }
 
-static void render_button(gui_view_node_t* node, const dispWin_t cs, const uint8_t depth)
+static void render_button(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == BUTTON);
@@ -1840,7 +1840,7 @@ static void render_button(gui_view_node_t* node, const dispWin_t cs, const uint8
     // NOTE: requires the parent is redrawn otherwise button will remain in 'selected' appearance
     // when selection moves on to another item.
     if (node->is_selected || node->button->color != node->button->selected_color) {
-        display_fill_rect(cs.x1, cs.y1, cs.x2 - cs.x1, cs.y2 - cs.y1,
+        display_fill_rect(cs->x1, cs->y1, cs->x2 - cs->x1, cs->y2 - cs->y1,
             node->is_selected ? node->button->selected_color : node->button->color);
     }
 
@@ -1851,15 +1851,15 @@ static void render_button(gui_view_node_t* node, const dispWin_t cs, const uint8
     }
 }
 
-static void render_vsplit(gui_view_node_t* node, const dispWin_t constraints, const uint8_t depth)
+static void render_vsplit(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == VSPLIT);
 
     uint16_t count = 0;
-    uint16_t y = constraints.y1;
-    uint16_t max_y = constraints.y2;
-    uint16_t width = max_y - y;
+    uint16_t y = cs->y1;
+    const uint16_t max_y = cs->y2;
+    const uint16_t width = max_y - y;
 
     // Draw children in the divided area parts
     gui_view_node_t* ptr = node->child;
@@ -1872,30 +1872,30 @@ static void render_vsplit(gui_view_node_t* node, const dispWin_t constraints, co
             step = get_step(node->split->kind, width, node->split->values[count]);
         }
 
-        dispWin_t child_constraints = {
-            .x1 = constraints.x1,
-            .x2 = constraints.x2,
+        const dispWin_t child_cs = {
+            .x1 = cs->x1,
+            .x2 = cs->x2,
             .y1 = y,
             .y2 = min_u16(y + step, max_y),
         };
 
-        render_node(ptr, child_constraints, depth + 1);
+        render_node(ptr, &child_cs, depth + 1);
 
         ++count;
-        y = child_constraints.y2;
+        y = child_cs.y2;
         ptr = ptr->sibling;
     }
 }
 
-static void render_hsplit(gui_view_node_t* node, const dispWin_t constraints, const uint8_t depth)
+static void render_hsplit(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == HSPLIT);
 
     uint16_t count = 0;
-    uint16_t x = constraints.x1;
-    uint16_t max_x = constraints.x2;
-    uint16_t width = max_x - x;
+    uint16_t x = cs->x1;
+    const uint16_t max_x = cs->x2;
+    const uint16_t width = max_x - x;
 
     // Draw children in the divided area parts
     gui_view_node_t* ptr = node->child;
@@ -1907,18 +1907,17 @@ static void render_hsplit(gui_view_node_t* node, const dispWin_t constraints, co
             step = get_step(node->split->kind, width, node->split->values[count]);
         }
 
-        dispWin_t child_constraints
-            = { .x1 = x, .x2 = min_u16(x + step, max_x), .y1 = constraints.y1, .y2 = constraints.y2 };
+        const dispWin_t child_cs = { .x1 = x, .x2 = min_u16(x + step, max_x), .y1 = cs->y1, .y2 = cs->y2 };
 
-        render_node(ptr, child_constraints, depth + 1);
+        render_node(ptr, &child_cs, depth + 1);
 
         ++count;
-        x = child_constraints.x2;
+        x = child_cs.x2;
         ptr = ptr->sibling;
     }
 }
 
-static void render_fill(gui_view_node_t* node, const dispWin_t cs, const uint8_t depth)
+static void render_fill(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == FILL);
@@ -1934,7 +1933,7 @@ static void render_fill(gui_view_node_t* node, const dispWin_t cs, const uint8_t
         JADE_ASSERT(false); // Unknown fill type
     }
 
-    display_fill_rect(cs.x1, cs.y1, cs.x2 - cs.x1, cs.y2 - cs.y1, color);
+    display_fill_rect(cs->x1, cs->y1, cs->x2 - cs->x1, cs->y2 - cs->y1, color);
 
     // Draw any children directly over the current node
     gui_view_node_t* ptr = node->child;
@@ -1974,7 +1973,7 @@ static inline int resolve_valign(int y, enum gui_vertical_align valign)
 }
 
 // render a text node to screen in the window constrained by cs
-static void render_text(gui_view_node_t* node, dispWin_t cs)
+static void render_text(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == TEXT);
@@ -2005,10 +2004,10 @@ static void render_text(gui_view_node_t* node, dispWin_t cs)
                 pos_x = 0;
                 break;
             case GUI_ALIGN_CENTER:
-                pos_x = (cs.x2 - cs.x1 - display_get_string_width(node->render_data.resolved_text)) / 2;
+                pos_x = (cs->x2 - cs->x1 - display_get_string_width(node->render_data.resolved_text)) / 2;
                 break;
             case GUI_ALIGN_RIGHT:
-                pos_x = cs.x2 - cs.x1 - display_get_string_width(node->render_data.resolved_text);
+                pos_x = cs->x2 - cs->x1 - display_get_string_width(node->render_data.resolved_text);
                 break;
             }
 
@@ -2020,7 +2019,7 @@ static void render_text(gui_view_node_t* node, dispWin_t cs)
             for (size_t i = 0; i < node->render_data.resolved_text_length; ++i) {
                 buf[0] = node->render_data.resolved_text[i];
                 const int char_width = display_get_string_width(buf);
-                if (pos_x + offset_x + char_width >= cs.x2 - cs.x1) {
+                if (pos_x + offset_x + char_width >= cs->x2 - cs->x1) {
                     offset_y += display_get_font_height();
                     offset_x = 0;
                 }
@@ -2043,7 +2042,7 @@ static void render_text(gui_view_node_t* node, dispWin_t cs)
 }
 
 // render an icon to screen
-static void render_icon(gui_view_node_t* node, const dispWin_t cs, const uint8_t depth)
+static void render_icon(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == ICON);
@@ -2073,7 +2072,7 @@ static void render_icon(gui_view_node_t* node, const dispWin_t cs, const uint8_t
 }
 
 // render a picture to screen
-static void render_picture(gui_view_node_t* node, const dispWin_t cs, const uint8_t depth)
+static void render_picture(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == PICTURE);
@@ -2091,7 +2090,7 @@ static void render_picture(gui_view_node_t* node, const dispWin_t cs, const uint
 }
 
 // render a qrguide to screen
-static void render_qrguide(gui_view_node_t* node, const dispWin_t cs, const uint8_t depth)
+static void render_qrguide(gui_view_node_t* node, const dispWin_t* const cs, const uint8_t depth)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == QRGUIDE);
@@ -2102,8 +2101,8 @@ static void render_qrguide(gui_view_node_t* node, const dispWin_t cs, const uint
     const uint16_t gnubbin = 2;
 
     // maximum square that fits in the constraints
-    const uint16_t width = cs.x2 - cs.x1;
-    const uint16_t height = cs.y2 - cs.y1;
+    const uint16_t width = cs->x2 - cs->x1;
+    const uint16_t height = cs->y2 - cs->y1;
     const uint16_t square_size = min_u16(width, height);
 #if defined(CONFIG_BOARD_TYPE_JADE_V1_ANY)
     // guides 9% inset
@@ -2113,10 +2112,10 @@ static void render_qrguide(gui_view_node_t* node, const dispWin_t cs, const uint
     const uint16_t inset = square_size / 30;
 #endif
     // guide boundaries
-    const uint16_t left = cs.x1 + (width - square_size) / 2 + inset;
-    const uint16_t right = cs.x2 - (width - square_size) / 2 - inset;
-    const uint16_t top = cs.y1 + (height - square_size) / 2 + inset;
-    const uint16_t bottom = cs.y2 - (height - square_size) / 2 - inset;
+    const uint16_t left = cs->x1 + (width - square_size) / 2 + inset;
+    const uint16_t right = cs->x2 - (width - square_size) / 2 - inset;
+    const uint16_t top = cs->y1 + (height - square_size) / 2 + inset;
+    const uint16_t bottom = cs->y2 - (height - square_size) / 2 - inset;
     // top-left
     display_fill_rect(left, top, gwidth, glength, node->qrguide->color);
     display_fill_rect(left, top, glength, gwidth, node->qrguide->color);
@@ -2146,13 +2145,13 @@ static void render_qrguide(gui_view_node_t* node, const dispWin_t cs, const uint
 }
 
 // paint the borders for a view_node
-static void paint_borders(gui_view_node_t* node, const dispWin_t cs)
+static void paint_borders(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
     JADE_ASSERT(node->borders);
 
-    const uint16_t width = cs.x2 - cs.x1;
-    const uint16_t height = cs.y2 - cs.y1;
+    const uint16_t width = cs->x2 - cs->x1;
+    const uint16_t height = cs->y2 - cs->y1;
 
     color_t* color = NULL;
     if (node->is_selected) {
@@ -2168,16 +2167,16 @@ static void paint_borders(gui_view_node_t* node, const dispWin_t cs)
     uint16_t thickness;
 
     if ((thickness = get_border_thickness(node->borders, GUI_BORDER_TOP_BIT))) {
-        display_fill_rect(cs.x1, cs.y1, width, thickness, *color); // top
+        display_fill_rect(cs->x1, cs->y1, width, thickness, *color); // top
     }
     if ((thickness = get_border_thickness(node->borders, GUI_BORDER_RIGHT_BIT))) {
-        display_fill_rect(cs.x2 - thickness, cs.y1, thickness, height, *color); // right
+        display_fill_rect(cs->x2 - thickness, cs->y1, thickness, height, *color); // right
     }
     if ((thickness = get_border_thickness(node->borders, GUI_BORDER_BOTTOM_BIT))) {
-        display_fill_rect(cs.x1, cs.y2 - thickness, width, thickness, *color); // bottom
+        display_fill_rect(cs->x1, cs->y2 - thickness, width, thickness, *color); // bottom
     }
     if ((thickness = get_border_thickness(node->borders, GUI_BORDER_LEFT_BIT))) {
-        display_fill_rect(cs.x1, cs.y1, thickness, height, *color); // left
+        display_fill_rect(cs->x1, cs->y1, thickness, height, *color); // left
     }
 }
 
@@ -2191,41 +2190,41 @@ static void repaint_node(gui_view_node_t* node)
 
     // borders use the un-padded constraints
     if (node->borders) {
-        dispWin_t constraints = node->render_data.original_constraints;
+        dispWin_t cs = node->render_data.original_constraints;
 
         // margins affect borders
-        constraints.y1 += node->margins.top;
-        constraints.x2 -= node->margins.right;
-        constraints.y2 -= node->margins.bottom;
-        constraints.x1 += node->margins.left;
+        cs.y1 += node->margins.top;
+        cs.x2 -= node->margins.right;
+        cs.y2 -= node->margins.bottom;
+        cs.x1 += node->margins.left;
 
-        paint_borders(node, constraints);
+        paint_borders(node, &cs);
     }
 
     switch (node->kind) {
     case HSPLIT:
-        render_hsplit(node, node->render_data.padded_constraints, node->render_data.depth);
+        render_hsplit(node, &node->render_data.padded_constraints, node->render_data.depth);
         break;
     case VSPLIT:
-        render_vsplit(node, node->render_data.padded_constraints, node->render_data.depth);
+        render_vsplit(node, &node->render_data.padded_constraints, node->render_data.depth);
         break;
     case TEXT:
-        render_text(node, node->render_data.padded_constraints); // text does not have child nodes
+        render_text(node, &node->render_data.padded_constraints); // text does not have child nodes
         break;
     case FILL:
-        render_fill(node, node->render_data.padded_constraints, node->render_data.depth);
+        render_fill(node, &node->render_data.padded_constraints, node->render_data.depth);
         break;
     case BUTTON:
-        render_button(node, node->render_data.padded_constraints, node->render_data.depth);
+        render_button(node, &node->render_data.padded_constraints, node->render_data.depth);
         break;
     case ICON:
-        render_icon(node, node->render_data.padded_constraints, node->render_data.depth);
+        render_icon(node, &node->render_data.padded_constraints, node->render_data.depth);
         break;
     case PICTURE:
-        render_picture(node, node->render_data.padded_constraints, node->render_data.depth);
+        render_picture(node, &node->render_data.padded_constraints, node->render_data.depth);
         break;
     case QRGUIDE:
-        render_qrguide(node, node->render_data.padded_constraints, node->render_data.depth);
+        render_qrguide(node, &node->render_data.padded_constraints, node->render_data.depth);
         break;
     }
 }
@@ -2236,7 +2235,7 @@ static void render_activity(gui_activity_t* activity)
     JADE_ASSERT(activity->root_node);
 
     const bool first_time = activity->root_node->render_data.is_first_time;
-    render_node(activity->root_node, activity->win, 0);
+    render_node(activity->root_node, &activity->win, 0);
 
     if (first_time && activity->selectables) {
         // If the activity has an 'initial_selection' and it appears active, select it now
@@ -2273,9 +2272,6 @@ static bool update_status_bar(const bool force_redraw)
     }
 
     bool updated = false;
-
-    dispWin_t status_bar_cs = GUI_DISPLAY_WINDOW;
-    status_bar_cs.y2 = status_bar_cs.y1 + GUI_STATUS_BAR_HEIGHT;
 
     // NOTE: we use the internal 'update_text_node_text()' method here
     // since we don't want to redraw each update individually, but rather
@@ -2337,7 +2333,9 @@ static bool update_status_bar(const bool force_redraw)
     status_bar.battery_update_counter--;
 
     if (status_bar.updated || force_redraw) {
-        render_node(status_bar.root, status_bar_cs, 0);
+        dispWin_t status_bar_cs = GUI_DISPLAY_WINDOW;
+        status_bar_cs.y2 = status_bar_cs.y1 + GUI_STATUS_BAR_HEIGHT;
+        render_node(status_bar.root, &status_bar_cs, 0);
         status_bar.updated = false;
         updated = true;
     }
