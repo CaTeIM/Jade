@@ -1780,8 +1780,8 @@ static inline uint16_t get_step(enum gui_split_type kind, uint16_t total, uint16
     return 0;
 }
 
-// Fully render a node, meaning that it also re-calculates the constraints, push elements to the selectables list, etc
-static void render_node(gui_view_node_t* node, const dispWin_t* const cs)
+// Re-calculate node constraints, push elements to the selectables list, etc
+static void pre_render_node(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
 
@@ -1802,9 +1802,15 @@ static void render_node(gui_view_node_t* node, const dispWin_t* const cs)
     // remember the original constrains, we will calculate the others based on those
     node->render_data.original_constraints = *cs;
     calc_render_data(node);
+    // node is now ready for repainting
+}
 
-    // actually paint the node on-screen
-    repaint_node(node);
+// pre-render a node to the given constraints then paint it on-screen
+// always-inline in order to avoid pushing a stack frame when recursing
+static inline __attribute__((always_inline)) void render_node(gui_view_node_t* node, const dispWin_t* const cs)
+{
+    pre_render_node(node, cs);
+    repaint_node(node); // actually paint the node on-screen
 }
 
 static void render_button(gui_view_node_t* node)
@@ -1852,17 +1858,20 @@ static void render_vsplit(gui_view_node_t* node)
             step = get_step(node->split->kind, width, node->split->values[count]);
         }
 
-        const dispWin_t child_cs = {
-            .x1 = cs->x1,
-            .x2 = cs->x2,
-            .y1 = y,
-            .y2 = min_u16(y + step, max_y),
-        };
-
-        render_node(ptr, &child_cs);
+        {
+            // Pre-render the node explicitly to reduce stack usage
+            const dispWin_t child_cs = {
+                .x1 = cs->x1,
+                .x2 = cs->x2,
+                .y1 = y,
+                .y2 = min_u16(y + step, max_y),
+            };
+            pre_render_node(ptr, &child_cs);
+            y = child_cs.y2;
+        }
+        repaint_node(ptr); // actually paint the node on-screen
 
         ++count;
-        y = child_cs.y2;
         ptr = ptr->sibling;
     }
 }
@@ -1889,12 +1898,15 @@ static void render_hsplit(gui_view_node_t* node)
             step = get_step(node->split->kind, width, node->split->values[count]);
         }
 
-        const dispWin_t child_cs = { .x1 = x, .x2 = min_u16(x + step, max_x), .y1 = cs->y1, .y2 = cs->y2 };
-
-        render_node(ptr, &child_cs);
+        {
+            // Pre-render the node explicitly to reduce stack usage
+            const dispWin_t child_cs = { .x1 = x, .x2 = min_u16(x + step, max_x), .y1 = cs->y1, .y2 = cs->y2 };
+            pre_render_node(ptr, &child_cs);
+            x = child_cs.x2;
+        }
+        repaint_node(ptr); // actually paint the node on-screen
 
         ++count;
-        x = child_cs.x2;
         ptr = ptr->sibling;
     }
 }
@@ -2320,9 +2332,13 @@ static bool update_status_bar(const bool force_redraw)
     status_bar.battery_update_counter--;
 
     if (status_bar.updated || force_redraw) {
-        dispWin_t status_bar_cs = GUI_DISPLAY_WINDOW;
-        status_bar_cs.y2 = status_bar_cs.y1 + GUI_STATUS_BAR_HEIGHT;
-        render_node(status_bar.root, &status_bar_cs);
+        {
+            // Pre-render the status bar explicitly to reduce stack usage
+            dispWin_t status_bar_cs = GUI_DISPLAY_WINDOW;
+            status_bar_cs.y2 = status_bar_cs.y1 + GUI_STATUS_BAR_HEIGHT;
+            pre_render_node(status_bar.root, &status_bar_cs);
+        }
+        repaint_node(status_bar.root); // actually paint the status bar on-screen
         status_bar.updated = false;
         updated = true;
     }
