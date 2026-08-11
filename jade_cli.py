@@ -246,5 +246,13 @@ def capture_image_data(jade, filename, check_qr):
         click.echo(f'Image data written to {filename}')
 
 
+@cli.command()
+@with_jade_client
+def drain(jade):
+    while (True):
+        jade.drain()
+        time.sleep(1)
+
+
 if __name__ == "__main__":
     cli()
