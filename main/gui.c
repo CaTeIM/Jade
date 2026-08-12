@@ -686,24 +686,18 @@ void gui_make_activity_ex(gui_activity_t** ppact, const bool has_status_bar, con
     JADE_INIT_OUT_PPTR(ppact);
     JADE_ASSERT(!title || has_status_bar);
 
+    activity_holder_t* holder = NULL;
+    gui_activity_t* activity = NULL;
+
     if (managed) {
-        // Managed activity - add to activities list
-        activity_holder_t* holder = JADE_CALLOC(1, sizeof(activity_holder_t));
-
-        // Add to the stack of existing activities
-        JADE_SEMAPHORE_TAKE(gui_mutex);
-        holder->next = existing_activities;
-        existing_activities = holder;
-        JADE_SEMAPHORE_GIVE(gui_mutex);
-
-        // Return the activity from within this holder
-        *ppact = &holder->activity;
+        // Managed activity - create a holder and return its activity
+        holder = JADE_CALLOC(1, sizeof(activity_holder_t));
+        activity = &holder->activity;
     } else {
         // Unmanaged - just create the activity to return
-        *ppact = JADE_CALLOC(1, sizeof(gui_activity_t));
-        JADE_LOGW("Created unmanaged gui activity at %p", *ppact);
+        activity = JADE_CALLOC(1, sizeof(gui_activity_t));
+        JADE_LOGW("Created unmanaged gui activity at %p", activity);
     }
-    gui_activity_t* const activity = *ppact;
 
     // Initialise any non-NULL activity fields
     activity->win = GUI_DISPLAY_WINDOW;
@@ -718,13 +712,20 @@ void gui_make_activity_ex(gui_activity_t** ppact, const bool has_status_bar, con
         JADE_ASSERT(activity->title);
     }
 
-    gui_view_node_t* bg;
-    gui_make_fill(&bg, TFT_BLACK, FILL_PLAIN, NULL);
-    activity->root_node = bg;
+    gui_make_fill(&activity->root_node, TFT_BLACK, FILL_PLAIN, NULL);
     activity->root_node->activity = activity;
 #ifdef CONFIG_UI_WRAP_ALL_MENUS
     activity->selectables_wrap = true; // allow the button cursor to wrap
 #endif
+
+    if (holder) {
+        // Managed activity - add to the stack of existing activities
+        JADE_SEMAPHORE_TAKE(gui_mutex);
+        holder->next = existing_activities;
+        existing_activities = holder;
+        JADE_SEMAPHORE_GIVE(gui_mutex);
+    }
+    *ppact = activity; // return to the caller
 }
 
 // Create a new/initialised 'managed' activity without a status bar,
