@@ -805,7 +805,7 @@ void display_set_font(const uint8_t font)
 
 void display_print_in_area(const char* st, int x, int y, const dispWin_t* const cs, bool wrap)
 {
-    if (!cfont.bitmap) {
+    if (!cfont.bitmap || !*st) {
         return;
     }
     int TFT_X = 0;
@@ -823,7 +823,7 @@ void display_print_in_area(const char* st, int x, int y, const dispWin_t* const 
         y += cs->y1;
     }
 
-    int stl = strlen(st);
+    const int stl = strlen(st);
     int tmpw = display_get_string_width(st);
     int fh = cfont.y_size;
 
