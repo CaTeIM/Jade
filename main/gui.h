@@ -178,10 +178,6 @@ struct view_node_render_data {
     // area of the node *after* margins, padding and borders have been applied
     dispWin_t padded_constraints;
 
-    // used as a cache for translated strings
-    const char* resolved_text;
-    size_t resolved_text_length;
-
     // is this the first rendering of the node?
     bool is_first_time;
 };

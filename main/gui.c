@@ -1508,6 +1508,10 @@ static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
         return false;
     }
 
+    if (!node->text->text) {
+        return false; // Empty string
+    }
+
     // check if scrolling is only enabled when the item is selected, and node
     // NOT currently selected - if so redraw at 'start' position
     if (!node->is_selected && node->text->scroll->only_when_selected) {
@@ -1532,7 +1536,7 @@ static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
 
     // the string can fit entirely in its box, no need to scroll. we might need to reset stuff though, if the text has
     // changed
-    if (can_text_fit(node->render_data.resolved_text, node->text->font, node->render_data.padded_constraints)) {
+    if (can_text_fit(node->text->text, node->text->font, node->render_data.padded_constraints)) {
         const size_t old_offset = node->text->scroll->offset;
 
         // set offset to zero and wait a little before checking again
@@ -1545,12 +1549,13 @@ static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
     }
 
     // update the offset based on the direction
+    const size_t text_length = strlen(node->text->text);
     node->text->scroll->prev_offset = node->text->scroll->offset;
     if (node->text->scroll->going_back) {
         JADE_ASSERT(node->text->scroll->offset > 0); // we should "catch" this before and set going_back to false
         node->text->scroll->offset--;
-    } else if (node->text->scroll->offset
-        <= node->render_data.resolved_text_length - 1) { // never go out of bounds with the offset
+    } else if (node->text->scroll->offset <= text_length - 1) {
+        // never go out of bounds with the offset
         node->text->scroll->offset++;
     }
 
@@ -1559,9 +1564,9 @@ static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
 
     // check if we are done going forward
     if (!node->text->scroll->going_back) {
-        bool can_fit = can_text_fit(node->render_data.resolved_text + node->text->scroll->offset, node->text->font,
-            node->render_data.padded_constraints);
-        bool end_of_string = node->text->scroll->offset == node->render_data.resolved_text_length - 1;
+        bool can_fit = can_text_fit(
+            node->text->text + node->text->scroll->offset, node->text->font, node->render_data.padded_constraints);
+        bool end_of_string = node->text->scroll->offset == text_length - 1;
 
         // done, let's go back. we can fit OR we reached the end of the string
         if (can_fit || end_of_string) {
@@ -1637,28 +1642,6 @@ void gui_set_text_font(gui_view_node_t* node, uint32_t font)
 
 void gui_set_text_default_font(gui_view_node_t* node) { gui_set_text_font(node, GUI_DEFAULT_FONT); }
 
-// resolve translated strings/etc
-static void resolve_text(gui_view_node_t* node)
-{
-    JADE_ASSERT(node);
-    JADE_ASSERT(node->kind == TEXT);
-
-    const char* resolved_text = NULL;
-    if (strncmp("@string/", node->text->text, 8) == 0) {
-        const char* key = node->text->text + 8;
-
-        const locale_multilang_string_t* str = locale_get(key);
-        if (str) {
-            resolved_text = locale_lang_with_fallback(str, GUI_LOCALE);
-        }
-    }
-
-    // set the resolved text. if we weren't able to resolve it (not a ref, not translated, missing for this lang, etc)
-    // we just use the original value
-    node->render_data.resolved_text = resolved_text ? resolved_text : node->text->text;
-    node->render_data.resolved_text_length = strlen(node->render_data.resolved_text);
-}
-
 // Helper function to just update the text node internal text data - does not repaint,
 // so several nodes can be updated then a single repaint issued - eg. the status bar
 static void update_text_node_text(gui_view_node_t* node, const char* text)
@@ -1676,9 +1659,6 @@ static void update_text_node_text(gui_view_node_t* node, const char* text)
     // free the old text node and replace with the new pointer
     wally_free_string(node->text->text);
     node->text->text = new_text;
-
-    // resolve text references
-    resolve_text(node);
 }
 
 // Takes the gui_mutex, updates the text node, and then only draws the
@@ -1791,12 +1771,6 @@ static void pre_render_node(gui_view_node_t* node, const dispWin_t* const cs)
         if (is_kind_selectable(node->kind)) {
             push_selectable(node->activity, node, cs->x1, cs->y1);
         }
-
-        // resolve the value for text objects
-        if (node->kind == TEXT) {
-            resolve_text(node);
-        }
-
         node->render_data.is_first_time = false;
     }
 
@@ -1982,13 +1956,13 @@ static void render_text(gui_view_node_t* node)
 
         // set the foreground color to the "background color" to remove the previous string
         _fg = node->is_selected ? node->text->scroll->selected_background_color : node->text->scroll->background_color;
-        display_print_in_area(node->render_data.resolved_text + node->text->scroll->prev_offset,
-            resolve_halign(0, node->text->halign), resolve_valign(0, node->text->valign), cs, 0);
+        display_print_in_area(node->text->text + node->text->scroll->prev_offset, resolve_halign(0, node->text->halign),
+            resolve_valign(0, node->text->valign), cs, 0);
 
         // and now we write the new one using the correct color
         _fg = node->is_selected ? node->text->selected_color : node->text->color;
-        display_print_in_area(node->render_data.resolved_text + node->text->scroll->offset,
-            resolve_halign(0, node->text->halign), resolve_valign(0, node->text->valign), cs, 0);
+        display_print_in_area(node->text->text + node->text->scroll->offset, resolve_halign(0, node->text->halign),
+            resolve_valign(0, node->text->valign), cs, 0);
 
     } else {
         // normal print with wrap
@@ -2001,20 +1975,21 @@ static void render_text(gui_view_node_t* node)
                 pos_x = 0;
                 break;
             case GUI_ALIGN_CENTER:
-                pos_x = (cs->x2 - cs->x1 - display_get_string_width(node->render_data.resolved_text)) / 2;
+                pos_x = (cs->x2 - cs->x1 - display_get_string_width(node->text->text)) / 2;
                 break;
             case GUI_ALIGN_RIGHT:
-                pos_x = cs->x2 - cs->x1 - display_get_string_width(node->render_data.resolved_text);
+                pos_x = cs->x2 - cs->x1 - display_get_string_width(node->text->text);
                 break;
             }
 
             const int pos_y = resolve_valign(0, node->text->valign);
 
+            const size_t text_length = strlen(node->text->text);
             uint16_t offset_x = 0;
             uint16_t offset_y = 0;
             char buf[2] = { '\0', '\0' };
-            for (size_t i = 0; i < node->render_data.resolved_text_length; ++i) {
-                buf[0] = node->render_data.resolved_text[i];
+            for (size_t i = 0; i < text_length; ++i) {
+                buf[0] = node->text->text[i];
                 const int char_width = display_get_string_width(buf);
                 if (pos_x + offset_x + char_width >= cs->x2 - cs->x1) {
                     offset_y += display_get_font_height();
@@ -2025,15 +2000,15 @@ static void render_text(gui_view_node_t* node)
                 buf[0] = 0x61 + get_uniform_random_byte(0x7a - 0x61);
                 display_print_in_area(buf, pos_x + offset_x, pos_y + offset_y, cs, 1);
                 _fg = color;
-                buf[0] = node->render_data.resolved_text[i];
+                buf[0] = node->text->text[i];
                 display_print_in_area(buf, pos_x + offset_x, pos_y + offset_y, cs, 1);
                 offset_x += char_width;
             }
         } else { // without noise
             _fg = node->is_selected ? node->text->selected_color : node->text->color;
 
-            display_print_in_area(node->render_data.resolved_text, resolve_halign(0, node->text->halign),
-                resolve_valign(0, node->text->valign), cs, 1);
+            display_print_in_area(
+                node->text->text, resolve_halign(0, node->text->halign), resolve_valign(0, node->text->valign), cs, 1);
         }
     }
 }
