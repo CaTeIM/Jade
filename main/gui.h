@@ -171,17 +171,6 @@ typedef struct activity_event {
     struct activity_event* next;
 } activity_event_t;
 
-// Values calculated by the render that can be useful later
-struct view_node_render_data {
-    dispWin_t original_constraints;
-
-    // area of the node *after* margins, padding and borders have been applied
-    dispWin_t padded_constraints;
-
-    // is this the first rendering of the node?
-    bool is_first_time;
-};
-
 // Data for a {v,h}split
 struct view_node_split_data {
     // type of split
@@ -345,8 +334,12 @@ typedef void (*free_callback_t)(void*);
 
 // Generic struct representing a node in the view tree
 struct gui_view_node_t {
-    // stuff set by the renderer
-    struct view_node_render_data render_data;
+    // renderer: original size constraints
+    dispWin_t constraints;
+    // renderer: constraints *after* margins/padding/borders have been applied
+    dispWin_t padded_constraints;
+    // renderer: true if this is the first rendering of the node
+    bool is_first_render;
 
     // NULL for the root node
     gui_view_node_t* parent;

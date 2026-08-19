@@ -745,10 +745,10 @@ void update_progress_bar(progress_bar_t* progress_bar, const size_t total, const
         return;
     }
 
-    if (!progress_bar->progress_bar->render_data.is_first_time) {
+    if (!progress_bar->progress_bar->is_first_render) {
         // Can only reliably update the progress bar after its initial rendering
-        const uint16_t constraints_x1 = progress_bar->progress_bar->render_data.original_constraints.x1;
-        const uint16_t constraints_x2 = progress_bar->progress_bar->render_data.original_constraints.x2;
+        const uint16_t constraints_x1 = progress_bar->progress_bar->constraints.x1;
+        const uint16_t constraints_x2 = progress_bar->progress_bar->constraints.x2;
         const gui_margin_t* const margins = &progress_bar->progress_bar->margins;
         const uint16_t width_bar = constraints_x2 - constraints_x1 - margins->left - margins->right;
         const uint16_t width_shaded = width_bar * current / total;

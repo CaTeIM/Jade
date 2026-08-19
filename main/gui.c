@@ -366,7 +366,7 @@ void gui_set_active(gui_view_node_t* node, const bool value)
 
     // Set passed node to active/inactive and redraw
     set_tree_active(node, value);
-    if (!node->render_data.is_first_time) {
+    if (!node->is_first_render) {
         gui_repaint(node); // Repaint since screen is "live"
     }
 }
@@ -595,7 +595,7 @@ void gui_activity_set_active_selection(gui_activity_t* activity, gui_view_node_t
     // 'selected' should have been seen in 'nodes'
     JADE_ASSERT(set_selected);
 
-    if (activity->root_node && !activity->root_node->render_data.is_first_time) {
+    if (activity->root_node && !activity->root_node->is_first_render) {
         // Screen is "live": repaint the whole activity
         gui_repaint(activity->root_node);
     }
@@ -1031,7 +1031,7 @@ static void make_view_node(gui_view_node_t** ptr, enum view_node_kind kind, void
 
     *ptr = JADE_CALLOC(1, sizeof(gui_view_node_t));
 
-    (*ptr)->render_data.is_first_time = true;
+    (*ptr)->is_first_render = true;
 
     (*ptr)->is_selected = false;
     // by default active
@@ -1206,7 +1206,7 @@ void gui_make_qrguide(gui_view_node_t** ptr, color_t color)
 static bool icon_animation_frame_callback(gui_view_node_t* node, void* extra_args)
 {
     // no node, invalid node, not yet rendered...
-    if (!node || node->kind != ICON || node->render_data.is_first_time) {
+    if (!node || node->kind != ICON || node->is_first_render) {
         return false;
     }
 
@@ -1350,11 +1350,11 @@ static void calc_render_data(gui_view_node_t* node)
     JADE_ASSERT(node);
 
     // constraints haven't been set yet, we can't do much
-    if (node->render_data.is_first_time) {
+    if (node->is_first_render) {
         return;
     }
 
-    dispWin_t constraints = node->render_data.original_constraints;
+    dispWin_t constraints = node->constraints;
 
     // margins affect borders and all contents
     constraints.y1 += node->margins.top;
@@ -1377,7 +1377,7 @@ static void calc_render_data(gui_view_node_t* node)
     constraints.x1 += node->padding.left;
 
     // cache these padded constraints
-    node->render_data.padded_constraints = constraints;
+    node->padded_constraints = constraints;
 }
 
 void gui_set_margins(gui_view_node_t* node, int sides, ...)
@@ -1507,7 +1507,7 @@ static inline bool can_text_fit(const char* text, uint32_t font, dispWin_t cs)
 static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
 {
     // no node, invalid node, not yet rendered...
-    if (!node || node->kind != TEXT || node->render_data.is_first_time) {
+    if (!node || node->kind != TEXT || node->is_first_render) {
         return false;
     }
 
@@ -1540,7 +1540,7 @@ static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
 
     // the string can fit entirely in its box, no need to scroll. we might need to reset stuff though, if the text has
     // changed
-    if (can_text_fit(text->text, text->font, node->render_data.padded_constraints)) {
+    if (can_text_fit(text->text, text->font, node->padded_constraints)) {
         const size_t old_offset = text->scroll->offset;
 
         // set offset to zero and wait a little before checking again
@@ -1568,8 +1568,7 @@ static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
 
     // check if we are done going forward
     if (!text->scroll->going_back) {
-        bool can_fit
-            = can_text_fit(text->text + text->scroll->offset, text->font, node->render_data.padded_constraints);
+        bool can_fit = can_text_fit(text->text + text->scroll->offset, text->font, node->padded_constraints);
         bool end_of_string = text->scroll->offset == text_length - 1;
 
         // done, let's go back. we can fit OR we reached the end of the string
@@ -1776,16 +1775,16 @@ static void pre_render_node(gui_view_node_t* node, const dispWin_t* const cs)
 {
     JADE_ASSERT(node);
 
-    if (node->render_data.is_first_time) {
+    if (node->is_first_render) {
         // now that we know the coordinates of this node we can push it to the list of selectable elements
         if (is_kind_selectable(node->kind)) {
             push_selectable(node->activity, node, cs->x1, cs->y1);
         }
-        node->render_data.is_first_time = false;
+        node->is_first_render = false;
     }
 
-    // remember the original constrains, we will calculate the others based on those
-    node->render_data.original_constraints = *cs;
+    // remember the original constraints, we will calculate the others based on those
+    node->constraints = *cs;
     calc_render_data(node);
     // node is now ready for repainting
 }
@@ -1803,7 +1802,7 @@ static void render_button(gui_view_node_t* node)
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == BUTTON);
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
 
     // If the un-selected colour is the same as the selected colour, it implies
     // the button is transparent when not selected, so we can skip filling the content.
@@ -1825,7 +1824,7 @@ static void render_vsplit(gui_view_node_t* node)
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == VSPLIT);
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
 
     uint16_t count = 0;
     uint16_t y = cs->y1;
@@ -1866,7 +1865,7 @@ static void render_hsplit(gui_view_node_t* node)
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == HSPLIT);
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
 
     uint16_t count = 0;
     uint16_t x = cs->x1;
@@ -1912,7 +1911,7 @@ static void render_fill(gui_view_node_t* node)
         JADE_ASSERT(false); // Unknown fill type
     }
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
     display_fill_rect(cs->x1, cs->y1, cs->x2 - cs->x1, cs->y2 - cs->y1, color);
 
     // Draw any children directly over the current node
@@ -1956,7 +1955,7 @@ static void render_text(gui_view_node_t* node)
 {
     JADE_ASSERT(node && node->kind == TEXT);
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
     const struct view_node_text_data* text = node->text;
 
     display_set_font(text->font);
@@ -2028,7 +2027,7 @@ static void render_icon(gui_view_node_t* node)
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == ICON);
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
 
     if (node->icon) {
         color_t color, bg_color;
@@ -2059,7 +2058,7 @@ static void render_picture(gui_view_node_t* node)
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == PICTURE);
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
 
     if (node->picture && node->picture->picture) {
         display_picture(node->picture->picture, resolve_halign(0, node->picture->halign),
@@ -2078,7 +2077,7 @@ static void render_qrguide(gui_view_node_t* node)
     JADE_ASSERT(node);
     JADE_ASSERT(node->kind == QRGUIDE);
 
-    const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const dispWin_t* const cs = &node->padded_constraints;
 
     // guide dimensions
     const uint16_t gwidth = 2;
@@ -2174,7 +2173,7 @@ static void repaint_node(gui_view_node_t* node)
 
     // borders use the un-padded constraints
     if (node->borders) {
-        dispWin_t cs = node->render_data.original_constraints;
+        dispWin_t cs = node->constraints;
 
         // margins affect borders
         cs.y1 += node->margins.top;
@@ -2218,7 +2217,7 @@ static void render_activity(gui_activity_t* activity)
     JADE_ASSERT(activity);
     JADE_ASSERT(activity->root_node);
 
-    const bool first_time = activity->root_node->render_data.is_first_time;
+    const bool first_time = activity->root_node->is_first_render;
     render_node(activity->root_node, &activity->win);
 
     if (first_time && activity->selectables) {
