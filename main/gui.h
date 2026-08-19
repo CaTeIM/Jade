@@ -341,6 +341,15 @@ struct gui_view_node_t {
     // renderer: true if this is the first rendering of the node
     bool is_first_render;
 
+    // is this node currently selected (highlighted)?
+    bool is_selected;
+
+    // is this node active (highlightable)?
+    bool is_active;
+
+    // type of node
+    enum view_node_kind kind;
+
     // NULL for the root node
     gui_view_node_t* parent;
 
@@ -374,15 +383,6 @@ struct gui_view_node_t {
 
     // next sibling in the linked list
     gui_view_node_t* sibling;
-
-    // type of node
-    enum view_node_kind kind;
-
-    // is this node currently selected (highlighted)?
-    bool is_selected;
-
-    // is this node active (highlitable)?
-    bool is_active;
 };
 
 // Structs to facilitate chaining screens
