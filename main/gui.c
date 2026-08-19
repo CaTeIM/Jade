@@ -1511,77 +1511,78 @@ static bool text_scroll_frame_callback(gui_view_node_t* node, void* extra_args)
         return false;
     }
 
-    if (!node->text->text) {
+    const struct view_node_text_data* text = node->text;
+    if (!text->text) {
         return false; // Empty string
     }
 
     // check if scrolling is only enabled when the item is selected, and node
     // NOT currently selected - if so redraw at 'start' position
-    if (!node->is_selected && node->text->scroll->only_when_selected) {
+    if (!node->is_selected && text->scroll->only_when_selected) {
         // if text already at start position, just exit, nothing to do
-        if (!node->text->scroll->going_back && !node->text->scroll->offset) {
+        if (!text->scroll->going_back && !text->scroll->offset) {
             return false;
         }
 
         // set text to start position and return true so item repainted
-        node->text->scroll->prev_offset = node->text->scroll->offset;
-        node->text->scroll->going_back = false;
-        node->text->scroll->offset = 0;
-        node->text->scroll->wait = GUI_SCROLL_WAIT_END;
+        text->scroll->prev_offset = text->scroll->offset;
+        text->scroll->going_back = false;
+        text->scroll->offset = 0;
+        text->scroll->wait = GUI_SCROLL_WAIT_END;
         return true;
     }
 
     // do nothing this frame
-    if (node->text->scroll->wait > 0) {
-        node->text->scroll->wait--;
+    if (text->scroll->wait > 0) {
+        text->scroll->wait--;
         return false;
     }
 
     // the string can fit entirely in its box, no need to scroll. we might need to reset stuff though, if the text has
     // changed
-    if (can_text_fit(node->text->text, node->text->font, node->render_data.padded_constraints)) {
-        const size_t old_offset = node->text->scroll->offset;
+    if (can_text_fit(text->text, text->font, node->render_data.padded_constraints)) {
+        const size_t old_offset = text->scroll->offset;
 
         // set offset to zero and wait a little before checking again
-        node->text->scroll->going_back = false;
-        node->text->scroll->offset = 0;
-        node->text->scroll->wait = GUI_SCROLL_WAIT_END;
+        text->scroll->going_back = false;
+        text->scroll->offset = 0;
+        text->scroll->wait = GUI_SCROLL_WAIT_END;
 
         // only repaint on screen if the offset was not zero
         return old_offset != 0;
     }
 
     // update the offset based on the direction
-    const size_t text_length = strlen(node->text->text);
-    node->text->scroll->prev_offset = node->text->scroll->offset;
-    if (node->text->scroll->going_back) {
-        JADE_ASSERT(node->text->scroll->offset > 0); // we should "catch" this before and set going_back to false
-        node->text->scroll->offset--;
-    } else if (node->text->scroll->offset <= text_length - 1) {
+    const size_t text_length = strlen(text->text);
+    text->scroll->prev_offset = text->scroll->offset;
+    if (text->scroll->going_back) {
+        JADE_ASSERT(text->scroll->offset > 0); // we should "catch" this before and set going_back to false
+        text->scroll->offset--;
+    } else if (text->scroll->offset <= text_length - 1) {
         // never go out of bounds with the offset
-        node->text->scroll->offset++;
+        text->scroll->offset++;
     }
 
     // since we scrolled this frame, wait some frames before doing the next one
-    node->text->scroll->wait = GUI_SCROLL_WAIT_FRAME;
+    text->scroll->wait = GUI_SCROLL_WAIT_FRAME;
 
     // check if we are done going forward
-    if (!node->text->scroll->going_back) {
-        bool can_fit = can_text_fit(
-            node->text->text + node->text->scroll->offset, node->text->font, node->render_data.padded_constraints);
-        bool end_of_string = node->text->scroll->offset == text_length - 1;
+    if (!text->scroll->going_back) {
+        bool can_fit
+            = can_text_fit(text->text + text->scroll->offset, text->font, node->render_data.padded_constraints);
+        bool end_of_string = text->scroll->offset == text_length - 1;
 
         // done, let's go back. we can fit OR we reached the end of the string
         if (can_fit || end_of_string) {
-            node->text->scroll->going_back = true;
-            node->text->scroll->wait = GUI_SCROLL_WAIT_END;
+            text->scroll->going_back = true;
+            text->scroll->wait = GUI_SCROLL_WAIT_END;
         }
     }
 
     // start again
-    if (node->text->scroll->going_back && node->text->scroll->offset == 0) {
-        node->text->scroll->going_back = false;
-        node->text->scroll->wait = GUI_SCROLL_WAIT_END;
+    if (text->scroll->going_back && text->scroll->offset == 0) {
+        text->scroll->going_back = false;
+        text->scroll->wait = GUI_SCROLL_WAIT_END;
     }
 
     // repaint on screen
@@ -1947,71 +1948,70 @@ static inline int resolve_valign(int y, enum gui_vertical_align valign)
 // render a text node to screen in the window constrained by cs
 static void render_text(gui_view_node_t* node)
 {
-    JADE_ASSERT(node);
-    JADE_ASSERT(node->kind == TEXT);
+    JADE_ASSERT(node && node->kind == TEXT);
 
     const dispWin_t* const cs = &node->render_data.padded_constraints;
+    const struct view_node_text_data* text = node->text;
 
-    display_set_font(node->text->font);
+    display_set_font(text->font);
 
-    if (node->text->scroll) {
+    if (text->scroll) {
         // this text has the scroll enable, so disable wrap
 
         // set the foreground color to the "background color" to remove the previous string
-        _fg = node->is_selected ? node->text->scroll->selected_background_color : node->text->scroll->background_color;
-        display_print_in_area(node->text->text + node->text->scroll->prev_offset, resolve_halign(0, node->text->halign),
-            resolve_valign(0, node->text->valign), cs, 0);
+        _fg = node->is_selected ? text->scroll->selected_background_color : text->scroll->background_color;
+        display_print_in_area(text->text + text->scroll->prev_offset, resolve_halign(0, text->halign),
+            resolve_valign(0, text->valign), cs, 0);
 
         // and now we write the new one using the correct color
-        _fg = node->is_selected ? node->text->selected_color : node->text->color;
-        display_print_in_area(node->text->text + node->text->scroll->offset, resolve_halign(0, node->text->halign),
-            resolve_valign(0, node->text->valign), cs, 0);
+        _fg = node->is_selected ? text->selected_color : text->color;
+        display_print_in_area(
+            text->text + text->scroll->offset, resolve_halign(0, text->halign), resolve_valign(0, text->valign), cs, 0);
 
     } else {
         // normal print with wrap
-        if (node->text->noise) { // with noise
-            const color_t color = node->is_selected ? node->text->selected_color : node->text->color;
+        if (text->noise) { // with noise
+            const color_t color = node->is_selected ? text->selected_color : text->color;
 
             int pos_x = 0;
-            switch (node->text->halign) {
+            switch (text->halign) {
             case GUI_ALIGN_LEFT:
                 pos_x = 0;
                 break;
             case GUI_ALIGN_CENTER:
-                pos_x = (cs->x2 - cs->x1 - display_get_string_width(node->text->text)) / 2;
+                pos_x = (cs->x2 - cs->x1 - display_get_string_width(text->text)) / 2;
                 break;
             case GUI_ALIGN_RIGHT:
-                pos_x = cs->x2 - cs->x1 - display_get_string_width(node->text->text);
+                pos_x = cs->x2 - cs->x1 - display_get_string_width(text->text);
                 break;
             }
 
-            const int pos_y = resolve_valign(0, node->text->valign);
+            const int pos_y = resolve_valign(0, text->valign);
 
-            const size_t text_length = strlen(node->text->text);
+            const size_t text_length = strlen(text->text);
             uint16_t offset_x = 0;
             uint16_t offset_y = 0;
             char buf[2] = { '\0', '\0' };
             for (size_t i = 0; i < text_length; ++i) {
-                buf[0] = node->text->text[i];
+                buf[0] = text->text[i];
                 const int char_width = display_get_string_width(buf);
                 if (pos_x + offset_x + char_width >= cs->x2 - cs->x1) {
                     offset_y += display_get_font_height();
                     offset_x = 0;
                 }
 
-                _fg = node->text->noise->background_color;
+                _fg = text->noise->background_color;
                 buf[0] = 0x61 + get_uniform_random_byte(0x7a - 0x61);
                 display_print_in_area(buf, pos_x + offset_x, pos_y + offset_y, cs, 1);
                 _fg = color;
-                buf[0] = node->text->text[i];
+                buf[0] = text->text[i];
                 display_print_in_area(buf, pos_x + offset_x, pos_y + offset_y, cs, 1);
                 offset_x += char_width;
             }
         } else { // without noise
-            _fg = node->is_selected ? node->text->selected_color : node->text->color;
+            _fg = node->is_selected ? text->selected_color : text->color;
 
-            display_print_in_area(
-                node->text->text, resolve_halign(0, node->text->halign), resolve_valign(0, node->text->valign), cs, 1);
+            display_print_in_area(text->text, resolve_halign(0, text->halign), resolve_valign(0, text->valign), cs, 1);
         }
     }
 }
