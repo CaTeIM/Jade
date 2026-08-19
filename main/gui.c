@@ -939,14 +939,79 @@ void gui_set_parent(gui_view_node_t* child, gui_view_node_t* parent)
     }
 }
 
+// destructor for {v,h}split nodes
+static void free_view_node_split_data(struct view_node_split_data* data) { free(data->values); }
+
+// destructor for text nodes
+static void free_view_node_text_data(struct view_node_text_data* data)
+{
+    // free the char* that we allocated
+    // Use wally_free_string in case the text is sensitive
+    wally_free_string(data->text);
+
+    // also the scroll struct if present
+    if (data->scroll) {
+        free(data->scroll);
+    }
+
+    // and also the noise struct if present
+    if (data->noise) {
+        free(data->noise);
+    }
+}
+
+// destructor for text nodes
+static void free_view_node_icon_data(struct view_node_icon_data* data)
+{
+    // free the animation struct if present
+    if (data->animation) {
+        // NOTE: we owned the animation frames
+        for (int i = 0; i < data->animation->num_icons; ++i) {
+            // Free the icon data
+            free(data->animation->icons[i].data);
+        }
+        free(data->animation->icons);
+        free(data->animation);
+    }
+}
+
+// destructor for picture nodes
+static void free_view_node_picture_data(struct view_node_picture_data* data)
+{
+    if (data->picture) {
+        if (data->picture->data_8) {
+            free(data->picture->data_8);
+        }
+        free((void*)data->picture);
+    }
+}
+
 // Free a view_node
 void free_view_node(gui_view_node_t* node)
 {
-    JADE_ASSERT(node);
+    JADE_ASSERT(node && node->data);
 
-    // call the destructor if it's set
-    if (node->free_callback) {
-        node->free_callback(node->data);
+    // call the destructor
+    switch (node->kind) {
+    case HSPLIT:
+    case VSPLIT:
+        free_view_node_split_data(node->split);
+        break;
+    case TEXT:
+        free_view_node_text_data(node->text);
+        break;
+    case ICON:
+        free_view_node_icon_data(node->icon);
+        break;
+    case PICTURE:
+        free_view_node_picture_data(node->picture);
+        break;
+    case FILL:
+    case BUTTON:
+    case QRGUIDE:
+    case STATIC_PICTURE:
+        /* No-op */
+        break;
     }
 
     // free any borders
@@ -966,66 +1031,8 @@ void free_view_node(gui_view_node_t* node)
     free(node);
 }
 
-// destructor for {v,h}split nodes
-static void free_view_node_split_data(void* vdata)
-{
-    JADE_ASSERT(vdata);
-    struct view_node_split_data* data = vdata;
-    free(data->values);
-}
-
-// destructor for text nodes
-static void free_view_node_text_data(void* vdata)
-{
-    JADE_ASSERT(vdata);
-    struct view_node_text_data* data = vdata;
-
-    // free the char* that we allocated
-    // Use wally_free_string in case the text is sensitive
-    wally_free_string(data->text);
-
-    // also the scroll struct if present
-    if (data->scroll) {
-        free(data->scroll);
-    }
-
-    // and also the noise struct if present
-    if (data->noise) {
-        free(data->noise);
-    }
-}
-
-// destructor for text nodes
-static void free_view_node_icon_data(void* vdata)
-{
-    JADE_ASSERT(vdata);
-    struct view_node_icon_data* data = vdata;
-
-    // free the animation struct if present
-    if (data->animation) {
-        // NOTE: we owned the animation frames
-        for (int i = 0; i < data->animation->num_icons; ++i) {
-            // Free the icon data
-            free(data->animation->icons[i].data);
-        }
-        free(data->animation->icons);
-        free(data->animation);
-    }
-}
-
-// destructor for picture nodes
-static void free_view_node_picture_data(void* vdata)
-{
-    JADE_ASSERT(vdata);
-    struct view_node_picture_data* data = vdata;
-    JADE_ASSERT(data->picture);
-    JADE_ASSERT(data->picture->data_8);
-    free((void*)data->picture->data_8);
-    free((void*)data->picture);
-}
-
 // make the underlying view node, common across all the gui_make_* functions
-static void make_view_node(gui_view_node_t** ptr, enum view_node_kind kind, void* data, free_callback_t free_callback)
+static void make_view_node(gui_view_node_t** ptr, enum view_node_kind kind, void* data)
 {
     JADE_INIT_OUT_PPTR(ptr);
 
@@ -1039,7 +1046,6 @@ static void make_view_node(gui_view_node_t** ptr, enum view_node_kind kind, void
 
     (*ptr)->kind = kind;
     (*ptr)->data = data;
-    (*ptr)->free_callback = free_callback;
 }
 
 // Generic function to make a {v,h}split node
@@ -1064,8 +1070,7 @@ static void make_split_node(
         data->values[i] = (uint16_t)value;
     };
 
-    // ... and also set a destructor to free them later
-    make_view_node(ptr, split_kind, data, free_view_node_split_data);
+    make_view_node(ptr, split_kind, data);
 }
 
 void gui_make_hsplit(gui_view_node_t** ptr, enum gui_split_type kind, int parts, ...)
@@ -1105,7 +1110,7 @@ void gui_make_button(
     data->click_event_id = event_id;
     data->args = args;
 
-    make_view_node(ptr, BUTTON, data, NULL);
+    make_view_node(ptr, BUTTON, data);
 }
 
 void gui_make_fill(gui_view_node_t** ptr, color_t color, enum fill_node_kind fill_type, gui_view_node_t* parent)
@@ -1119,7 +1124,7 @@ void gui_make_fill(gui_view_node_t** ptr, color_t color, enum fill_node_kind fil
     data->selected_color = color;
     data->fill_type = fill_type;
 
-    make_view_node(ptr, FILL, data, NULL);
+    make_view_node(ptr, FILL, data);
     if (parent) {
         gui_set_parent(*ptr, parent);
     }
@@ -1160,8 +1165,7 @@ void gui_make_text_font(gui_view_node_t** ptr, const char* text, color_t color, 
     // without noise
     data->noise = NULL;
 
-    // also set free_view_node_text_data as destructor to free data->text
-    make_view_node(ptr, TEXT, data, free_view_node_text_data);
+    make_view_node(ptr, TEXT, data);
 }
 
 void gui_make_icon(gui_view_node_t** ptr, const Icon* icon, color_t color, const color_t* bg_color)
@@ -1188,8 +1192,7 @@ void gui_make_icon(gui_view_node_t** ptr, const Icon* icon, color_t color, const
     data->valign = GUI_ALIGN_TOP;
     data->icon_type = ICON_PLAIN;
 
-    // also set free_view_node_icon_data as destructor to free any animation data
-    make_view_node(ptr, ICON, data, free_view_node_icon_data);
+    make_view_node(ptr, ICON, data);
 }
 
 void gui_make_qrguide(gui_view_node_t** ptr, color_t color)
@@ -1200,7 +1203,7 @@ void gui_make_qrguide(gui_view_node_t** ptr, color_t color)
 
     data->color = color;
 
-    make_view_node(ptr, QRGUIDE, data, NULL);
+    make_view_node(ptr, QRGUIDE, data);
 }
 
 static bool icon_animation_frame_callback(gui_view_node_t* node, void* extra_args)
@@ -1269,7 +1272,8 @@ void gui_set_icon_to_qr(gui_view_node_t* node)
 void gui_make_picture(gui_view_node_t** ptr, const Picture* picture)
 {
     JADE_INIT_OUT_PPTR(ptr);
-    // picture optional at creation time
+    // picture is optional. if not provided, the caller is responsible for
+    // freeing any picture data set later.
 
     struct view_node_picture_data* data = JADE_CALLOC(1, sizeof(struct view_node_picture_data));
 
@@ -1280,8 +1284,9 @@ void gui_make_picture(gui_view_node_t** ptr, const Picture* picture)
     data->valign = GUI_ALIGN_TOP;
 
     // if the picture node is created without providing a picture then the caller
-    // is responsable for freeing the picture data
-    make_view_node(ptr, PICTURE, data, picture ? free_view_node_picture_data : NULL);
+    // is responsible for freeing the picture data
+    const enum view_node_kind kind = picture ? PICTURE : STATIC_PICTURE;
+    make_view_node(ptr, kind, data);
 }
 
 static void set_vals_with_varargs(gui_margin_t* margins, const int sides, va_list args)
@@ -1483,6 +1488,7 @@ void gui_set_align(gui_view_node_t* node, enum gui_horizontal_align halign, enum
         valign_ptr = &node->icon->valign;
         break;
     case PICTURE:
+    case STATIC_PICTURE:
         halign_ptr = &node->picture->halign;
         valign_ptr = &node->picture->valign;
         break;
@@ -1730,12 +1736,13 @@ void gui_update_icon(gui_view_node_t* node, const Icon icon, const bool repaint_
 // picture may be null to remove a picture so that the caller can free it.
 void gui_update_picture(gui_view_node_t* node, const Picture* picture, const bool repaint_parent)
 {
-    JADE_ASSERT(node && node->kind == PICTURE);
+    JADE_ASSERT(node && (node->kind == PICTURE || node->kind == STATIC_PICTURE));
 
     // Get the activity mutex, update the picture data and
     // if part of current activity release the mutex and post
     // a message to the gui task to repaint it.
     JADE_SEMAPHORE_TAKE(gui_mutex);
+    node->kind = picture ? PICTURE : STATIC_PICTURE; // Change to static if NULL
     node->picture->picture = picture;
     const bool repaint = picture && current_activity && node->activity == current_activity;
     JADE_SEMAPHORE_GIVE(gui_mutex);
@@ -2055,8 +2062,7 @@ static void render_icon(gui_view_node_t* node)
 // render a picture to screen
 static void render_picture(gui_view_node_t* node)
 {
-    JADE_ASSERT(node);
-    JADE_ASSERT(node->kind == PICTURE);
+    JADE_ASSERT(node && (node->kind == PICTURE || node->kind == STATIC_PICTURE));
 
     const dispWin_t* const cs = &node->padded_constraints;
 
@@ -2204,6 +2210,7 @@ static void repaint_node(gui_view_node_t* node)
         render_icon(node);
         break;
     case PICTURE:
+    case STATIC_PICTURE:
         render_picture(node);
         break;
     case QRGUIDE:

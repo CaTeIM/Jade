@@ -291,7 +291,17 @@ struct view_node_qrguide_data {
 };
 
 // Possible types of a view_node
-enum __attribute__((__packed__)) view_node_kind { HSPLIT, VSPLIT, TEXT, FILL, BUTTON, ICON, PICTURE, QRGUIDE };
+enum __attribute__((__packed__)) view_node_kind {
+    HSPLIT,
+    VSPLIT,
+    TEXT,
+    FILL,
+    BUTTON,
+    ICON,
+    PICTURE,
+    STATIC_PICTURE,
+    QRGUIDE
+};
 
 typedef struct wait_data {
     wait_event_data_t* event_data;
@@ -328,9 +338,6 @@ struct gui_activity_t {
     // should that cursor "wrap around" when you reach one end?
     bool selectables_wrap;
 };
-
-// Optional callback called when a view_node is destructed. Basically a custom destructor
-typedef void (*free_callback_t)(void*);
 
 // Generic struct representing a node in the view tree
 struct gui_view_node_t {
@@ -375,8 +382,6 @@ struct gui_view_node_t {
         struct view_node_picture_data* picture;
         struct view_node_qrguide_data* qrguide;
     };
-    // (optional) destructor
-    free_callback_t free_callback;
 
     // ptr to the first child of the list
     gui_view_node_t* child;
