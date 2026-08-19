@@ -179,10 +179,6 @@ static void boot_process(void)
         JADE_ABORT();
     }
 
-    if (!serial_init(serial_handle)) {
-        JADE_ABORT();
-    }
-
     // Create the default event loop here as multiple components depend on it
     JADE_ASSERT(esp_event_loop_create_default() == ESP_OK);
 
@@ -220,7 +216,12 @@ static void boot_process(void)
     // Idletimer init decides whether to power the screen or not based on whether this
     // is a soft restart due to inactivity.
     // NOTE: input methods use idle-timer, so are dependent.
+    //       wire.c methods also use idle-timer, so are dependent.
     idletimer_init();
+
+    if (!serial_init(serial_handle)) {
+        JADE_ABORT();
+    }
 
     // Initialise input devices as appropriate for the hw
     input_init();
