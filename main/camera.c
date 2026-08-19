@@ -535,7 +535,7 @@ void jade_camera_process_images(camera_process_fn_t fn, void* ctx, const bool sh
     JADE_ASSERT(fn);
     // ctx is optional
 
-    // show_ui indicates whether to show a ui or collect cmaera data 'silently'
+    // show_ui indicates whether to show a ui or collect camera data 'silently'
     // text_label is optional
     // text_button is optional - indicates we want the user to select the images presented
     // (otherwise all images are presented) to the given callback function ctx.fn_process()
