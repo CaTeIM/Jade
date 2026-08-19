@@ -1650,19 +1650,25 @@ void gui_set_text_default_font(gui_view_node_t* node) { gui_set_text_font(node, 
 // so several nodes can be updated then a single repaint issued - eg. the status bar
 static void update_text_node_text(gui_view_node_t* node, const char* text)
 {
-    JADE_ASSERT(node);
-    JADE_ASSERT(node->kind == TEXT);
+    JADE_ASSERT(node && node->kind == TEXT);
     JADE_ASSERT(text);
 
-    // max chars limited to GUI_MAX_TEXT_LENGTH
-    const size_t len = min_u16(GUI_MAX_TEXT_LENGTH, strlen(text) + 1);
-    char* new_text = JADE_MALLOC(len);
-    const int ret = snprintf(new_text, len, "%s", text);
-    JADE_ASSERT(ret >= 0); // truncation is acceptable here, as is empty string
+    const size_t text_length = strlen(text);
+    const size_t old_length = strlen(node->text->text);
+    if (text_length <= old_length) {
+        // Overwrite the existing string in place
+        wally_bzero(node->text->text, old_length);
+        memcpy(node->text->text, text, text_length);
+        return;
+    }
 
     // free the old text node and replace with the new pointer
     wally_free_string(node->text->text);
-    node->text->text = new_text;
+    // max chars limited to GUI_MAX_TEXT_LENGTH
+    const size_t len = min_u16(GUI_MAX_TEXT_LENGTH, text_length + 1);
+    node->text->text = JADE_MALLOC(len);
+    const int ret = snprintf(node->text->text, len, "%s", text);
+    JADE_ASSERT(ret >= 0); // truncation is acceptable here, as is empty string
 }
 
 // Takes the gui_mutex, updates the text node, and then only draws the
