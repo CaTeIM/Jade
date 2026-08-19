@@ -2713,6 +2713,9 @@ void dashboard_process(void* process_ptr)
     device_name = get_jade_id();
     JADE_ASSERT(device_name);
 
+    // Migrate to an empty activity, to free the splash screen
+    gui_set_current_activity_ex(gui_make_activity(), true);
+
     // NOTE: Create 'Ready' screen for when Jade is unlocked and ready to use early, so that
     // it does not fragment the RAM (since it is long-lived).
     // NOTE: The main home screen is created as an 'unmanaged' activity, so it is not placed
