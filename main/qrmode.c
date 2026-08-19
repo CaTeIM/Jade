@@ -33,9 +33,6 @@
 #define MAX_QR_V4_DATA_LEN 78
 #define MAX_QR_V6_DATA_LEN 134
 
-#define ACCOUNT_INDEX_MAX 65536
-#define ACCOUNT_INDEX_FLAGS_SHIFT 16
-
 #define MAX_OTP_SCREENS 1
 #define OTP_TEXTSPLITLEN 4
 #define OTP_GRID_TOPPAD 4
@@ -102,8 +99,6 @@ network_t network_from_psbt_type(struct wally_psbt* psbt);
 int sign_psbt(
     jade_process_t* process, CborValue* params, network_t network_id, struct wally_psbt* psbt, const char** errmsg);
 int wally_psbt_free(struct wally_psbt* psbt);
-
-#define EXPORT_XPUB_PATH_LEN 4
 
 #define ADDRESS_SEARCH_BATCH_SIZE(registered_wallet) (registered_wallet ? 10 : 20)
 #define NUM_BATCHES_TO_RECONFIRM(registered_wallet) (registered_wallet ? 20 : 25)
