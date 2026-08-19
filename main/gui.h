@@ -370,19 +370,6 @@ struct gui_view_node_t {
     // borders if set/applicable
     gui_border_t* borders;
 
-    // all the possible data-types
-    union {
-        void* data;
-
-        struct view_node_split_data* split;
-        struct view_node_text_data* text;
-        struct view_node_fill_data* fill;
-        struct view_node_button_data* button;
-        struct view_node_icon_data* icon;
-        struct view_node_picture_data* picture;
-        struct view_node_qrguide_data* qrguide;
-    };
-
     // ptr to the first child of the list
     gui_view_node_t* child;
 
@@ -434,6 +421,9 @@ void gui_make_fill(gui_view_node_t** ptr, color_t color, enum fill_node_kind fil
 void gui_make_text(gui_view_node_t** ptr, const char* text, color_t color);
 void gui_make_text_font(gui_view_node_t** ptr, const char* text, color_t color, uint32_t font);
 void gui_make_icon(gui_view_node_t** ptr, const Icon* icon, color_t color, const color_t* bg_color);
+// NOTE: takes ownership of 'icons'
+void gui_make_icon_animation(gui_view_node_t** ptr, gui_view_node_t* parent, color_t color, const color_t* bg_color,
+    Icon* icons, const size_t num_icons, const size_t frames_per_icon);
 void gui_make_picture(gui_view_node_t** ptr, const Picture* picture);
 void gui_make_qrguide(gui_view_node_t** ptr, color_t color);
 void gui_set_margins(gui_view_node_t* node, int sides, ...);
@@ -444,7 +434,6 @@ void gui_set_borders_inactive_color(gui_view_node_t* node, color_t inactive_colo
 void gui_set_colors(gui_view_node_t* node, color_t color, color_t selected_color);
 void gui_set_color(gui_view_node_t* node, color_t color);
 void gui_set_align(gui_view_node_t* node, enum gui_horizontal_align halign, enum gui_vertical_align valign);
-void gui_set_icon_animation(gui_view_node_t* node, Icon* icons, size_t num_icons, size_t frames_per_icon);
 void gui_set_icon_to_qr(gui_view_node_t* node);
 void gui_set_text_scroll(gui_view_node_t* node, color_t background_color);
 void gui_set_text_scroll_selected(
